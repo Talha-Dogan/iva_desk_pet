@@ -60,6 +60,15 @@ private:
     uint32_t emotion_until_ms_ = 0;
     bool sleeping_ = false;
 
+    // Sunucu cevap uretirken gecici duygular gonderiyor (olcum: gercek
+    // duygudan ~1 sn once kisa bir "sad"). Yeni duyguyu hemen uygulamak
+    // yerine sabitlenmesini bekleriz; bu sure icinde yenisi gelirse eskisi
+    // hic gosterilmeden atilir.
+    static constexpr uint32_t kEmotionSettleMs = 1400;
+    FaceEmotion pending_emotion_ = FaceEmotion::Neutral;
+    bool has_pending_emotion_ = false;
+    uint32_t pending_emotion_ms_ = 0;
+
     // Layout constants
     static constexpr float kEyeBaseW = 26.0f;
     static constexpr float kEyeBaseH = 30.0f;

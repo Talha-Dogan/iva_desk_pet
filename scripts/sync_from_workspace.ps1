@@ -27,6 +27,7 @@ $map = @(
     @{ src = "$fw\main\display\oled_display.h";       dst = "firmware\main\display\" },
     @{ src = "$fw\main\display\oled_display.cc";      dst = "firmware\main\display\" },
     @{ src = "$fw\main\audio\audio_service.cc";       dst = "firmware\main\audio\" },
+    @{ src = "$fw\main\audio\audio_service.h";        dst = "firmware\main\audio\" },
     @{ src = "$fw\main\application.cc";               dst = "firmware\main\" },
     @{ src = "$fw\main\CMakeLists.txt";               dst = "firmware\main\" },
     @{ src = "$fw\main\boards\bread-compact-wifi\config.h";              dst = "firmware\main\boards\bread-compact-wifi\" },

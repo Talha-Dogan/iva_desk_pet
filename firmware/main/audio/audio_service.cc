@@ -305,6 +305,11 @@ void AudioService::AudioOutputTask() {
             esp_timer_stop(audio_power_timer_);
             esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
             codec_->EnableOutput(true);
+            /* Amfi soguktan aciliyor: once ~60 ms sessizlik gonder ki I2S saati
+             * otururken hoparlorden "pat/vizilti" duyulmasin (MAX98357A'nin
+             * bilinen acilis sicramasi). */
+            std::vector<int16_t> warmup(codec_->output_sample_rate() * 60 / 1000, 0);
+            codec_->OutputData(warmup);
         }
 
         codec_->OutputData(task->pcm);
@@ -690,12 +695,16 @@ void AudioService::CheckAndUpdateAudioPowerState() {
     if (input_elapsed > AUDIO_POWER_TIMEOUT_MS && codec_->input_enabled()) {
         codec_->EnableInput(false);
     }
+#if !AUDIO_KEEP_OUTPUT_ENABLED
     if (output_elapsed > AUDIO_POWER_TIMEOUT_MS && codec_->output_enabled()) {
         // Keep TX clock when duplex RX is active; otherwise RX may stall on some boards.
         if (!(codec_->duplex() && codec_->input_enabled())) {
             codec_->EnableOutput(false);
         }
     }
+#else
+    (void)output_elapsed;  // hoparlor kanali bilerek acik birakiliyor
+#endif
     if (!codec_->input_enabled() && !codec_->output_enabled()) {
         esp_timer_stop(audio_power_timer_);
     }

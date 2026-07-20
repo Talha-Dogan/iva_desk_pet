@@ -152,10 +152,11 @@ void FaceEngine::SetEmotion(const char* emotion) {
             break;
         }
     }
-    emotion_ = found;
-    // Emotions fade back to neutral so the face never gets stuck in one mood.
-    emotion_until_ms_ = lv_tick_get() + (found == FaceEmotion::Neutral ? 0 : 12000);
-    ESP_LOGI(TAG, "Face emotion: %s", emotion);
+    // Hemen uygulama: once sabitlenmesini bekle (gecici sinyalleri suz)
+    pending_emotion_ = found;
+    has_pending_emotion_ = true;
+    pending_emotion_ms_ = lv_tick_get();
+    ESP_LOGI(TAG, "Face emotion (beklemede): %s", emotion);
 }
 
 void FaceEngine::ApplyEmotion() {
@@ -189,7 +190,8 @@ void FaceEngine::ApplyEmotion() {
         case FaceEmotion::Sad:
             t_brow_ = 0.55f;
             brow_dir_ = -1;  // carve the outer corners -> drooping look
-            t_gaze_y_ += 3;
+            t_gaze_y_ = 3;  // mutlak deger: += kullanilirsa her karede birikip
+                            // yuzu ekran disina kaydirir
             t_eye_h_scale_ *= 0.9f;
             if (state_ != FaceState::Speaking) {
                 t_mouth_w_ = 10;
@@ -239,7 +241,7 @@ void FaceEngine::ApplyEmotion() {
 
         case FaceEmotion::Sleepy:
             t_lid_ = 0.55f;
-            t_gaze_y_ += 2;
+            t_gaze_y_ = 2;  // mutlak deger (bkz. Sad)
             break;
 
         case FaceEmotion::Winking:
@@ -292,11 +294,13 @@ void FaceEngine::ComputeTargets() {
             bool audio_fresh = (now - audio_last_ms_) < 220;
             if (audio_fresh) {
                 float level = audio_level_;
-                t_mouth_h_ = 3.0f + level * 8.0f;
-                t_mouth_w_ = 15.0f + level * 3.0f;
+                // Agiz acilirken hafifce daralir (gercek agiz gibi): yuksek
+                // hecede "o", sessizlikte yatay cizgi.
+                t_mouth_h_ = 2.0f + level * 11.0f;
+                t_mouth_w_ = 19.0f - level * 4.0f;
             } else {
-                t_mouth_h_ = 3;
-                t_mouth_w_ = 15;
+                t_mouth_h_ = 2;
+                t_mouth_w_ = 19;
             }
             t_gaze_y_ = -1 + mouth_h_ * 0.06f;
             if (now >= next_happy_ms_) {
@@ -332,6 +336,10 @@ void FaceEngine::ComputeTargets() {
     }
 
     ApplyEmotion();
+
+    // Guvenlik siniri: hangi ifade gelirse gelsin yuz ekran disina cikamaz
+    t_gaze_x_ = Clampf(t_gaze_x_, -8.0f, 8.0f);
+    t_gaze_y_ = Clampf(t_gaze_y_, -6.0f, 6.0f);
 }
 
 void FaceEngine::ApplyGeometry() {
@@ -436,9 +444,11 @@ void FaceEngine::ApplyGeometry() {
         lv_obj_add_flag(right_brow_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    // Mouth
-    mouth_w_ = Ease(mouth_w_, t_mouth_w_, 0.45f);
-    mouth_h_ = Ease(mouth_h_, t_mouth_h_, 0.45f);
+    // Mouth: konusurken ses seviyesi zaten yumusatildigi icin burada daha
+    // hizli takip ederiz; diger durumlarda yumusak gecis korunur.
+    float mouth_k = (state_ == FaceState::Speaking) ? 0.75f : 0.45f;
+    mouth_w_ = Ease(mouth_w_, t_mouth_w_, mouth_k);
+    mouth_h_ = Ease(mouth_h_, t_mouth_h_, mouth_k);
     if (mouth_h_ < 1.5f) {
         lv_obj_add_flag(mouth_, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -478,11 +488,12 @@ void FaceEngine::ApplyGeometry() {
 }
 
 void FaceEngine::FeedAudioLevel(float level) {
-    // Smooth the level a bit so the mouth does not jitter per 20 ms frame.
+    // Agiz hizli acilir, yavas kapanir (gercek agiz boyle hareket eder).
+    // Tek kademe yumusatma: geometri tarafinda ikinci bir filtre yok ki
+    // sesle goruntu arasinda gecikme olusmasin.
     float prev = audio_level_;
-    float smoothed = (level > prev) ? (prev + (level - prev) * 0.6f)
-                                    : (prev + (level - prev) * 0.35f);
-    audio_level_ = Clampf(smoothed, 0.0f, 1.0f);
+    float k = (level > prev) ? 0.70f : 0.22f;
+    audio_level_ = Clampf(prev + (level - prev) * k, 0.0f, 1.0f);
     audio_last_ms_ = lv_tick_get();
 }
 
@@ -491,26 +502,46 @@ void FaceOnAudioOutput(const int16_t* pcm, size_t samples) {
     if (face == nullptr || pcm == nullptr || samples == 0) {
         return;
     }
-    // Cheap peak estimate over a subsampled window.
-    int32_t peak = 0;
-    size_t step = samples > 256 ? samples / 128 : 1;
+
+    // RMS (ortalama guc) kullaniyoruz: tepe degeri konusmada surekli tavana
+    // vurdugu icin agzi hep acik gosteriyordu. RMS konusmanin gercek
+    // yogunlugunu izler.
+    int64_t sum_sq = 0;
+    size_t count = 0;
+    size_t step = samples > 512 ? samples / 256 : 1;
     for (size_t i = 0; i < samples; i += step) {
         int32_t v = pcm[i];
-        if (v < 0) {
-            v = -v;
-        }
-        if (v > peak) {
-            peak = v;
-        }
+        sum_sq += (int64_t)v * v;
+        count++;
     }
-    // Map to 0..1 with a floor so quiet speech still opens the mouth a little.
-    float level = (float)peak / 12000.0f;
-    face->FeedAudioLevel(level > 1.0f ? 1.0f : level);
+    if (count == 0) {
+        return;
+    }
+    float rms = sqrtf((float)sum_sq / (float)count);
+
+    // Logaritmik olcek: kulak sesi boyle duyar. -46 dBFS ile 0 dBFS arasini
+    // 0..1'e esler; boylece kisik heceler de agzi biraz aciar, yuksek heceler
+    // tavana yapismaz.
+    float level = 0.0f;
+    if (rms > 1.0f) {
+        float db = 20.0f * log10f(rms / 32768.0f);
+        level = (db + 46.0f) / 46.0f;
+    }
+    face->FeedAudioLevel(Clampf(level, 0.0f, 1.0f));
 }
 
 void FaceEngine::Update() {
     if (!container_) {
         return;
+    }
+
+    // Bekleyen duygu: sabitlendiyse uygula (gecici sinyaller boylece elenir)
+    if (has_pending_emotion_ &&
+        (lv_tick_get() - pending_emotion_ms_) >= kEmotionSettleMs) {
+        has_pending_emotion_ = false;
+        emotion_ = pending_emotion_;
+        emotion_until_ms_ = lv_tick_get() +
+                            (pending_emotion_ == FaceEmotion::Neutral ? 0 : 12000);
     }
 
     // Bekleyen uyku: once veda cumlesinin bitmesini bekle, sonra gozleri kapat
