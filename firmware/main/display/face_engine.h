@@ -24,6 +24,9 @@ public:
     void Init(lv_obj_t* parent);
     void SetState(FaceState state);
     void SetEmotion(const char* emotion);
+    // Uykuya "hemen" degil, konusma bitince gecer: Iva once iyi geceler der,
+    // sesi bittikten sonra gozlerini kapatir.
+    void RequestSleep();
     void Sleep();
     void WakeUp();
     bool IsSleeping() const { return sleeping_; }
@@ -49,6 +52,11 @@ private:
 
     FaceState state_ = FaceState::Idle;
     FaceEmotion emotion_ = FaceEmotion::Neutral;
+
+    // Bekleyen uyku istegi (konusma bitince uygulanir)
+    bool pending_sleep_ = false;
+    bool pending_speech_seen_ = false;
+    uint32_t pending_sleep_ms_ = 0;
     uint32_t emotion_until_ms_ = 0;
     bool sleeping_ = false;
 

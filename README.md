@@ -50,10 +50,25 @@ Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
 
 ## Hızlı başlangıç
 
+Yeni bir bilgisayarda tek komutla kurulur:
+
+```powershell
+git clone https://github.com/Talha-Dogan/iva_desk_pet.git
+cd iva_desk_pet
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+Betik sanal ortamı kurar, bağımlılıkları yükler, `.env` şablonunu hazırlar ve
+Windows açılışına otomatik başlatma ekler. Ardından `bridge\.env` dosyasına
+anahtarlarını yazman yeterli. Ayrıntılar: [docs/kurulum.md](docs/kurulum.md)
+
+Diğer belgeler:
+
 1. **Donanım:** [docs/donanim.md](docs/donanim.md) — kablolama şeması
 2. **Firmware:** [firmware/README.md](firmware/README.md) — derleme ve yükleme
 3. **Araçlar:** [bridge/README.md](bridge/README.md) — not/Telegram sistemi
 4. **Kendi sunucun (opsiyonel):** [server/README.md](server/README.md)
+5. **Mimari:** [docs/mimari.md](docs/mimari.md) — tasarım kararları
 
 ## Donanım
 
@@ -74,7 +89,8 @@ Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
 - [x] Gerçek dudak senkronu, düşük güç ekran çizimi
 - [x] Not / Telegram / mod / proje / hatırlatıcı araçları
 - [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
-- [ ] Otomatik başlatma ve kalıcı hatırlatıcılar
+- [x] Windows açılışında otomatik başlatma + tek komutluk kurulum
+- [ ] Kalıcı hatırlatıcılar ve veri yedeği
 - [ ] Sesli oyunlar ve Pomodoro modu
 - [ ] Ders/toplantı kayıt ve özet modu
 - [ ] Home Assistant ile akıllı ev kontrolü

@@ -92,7 +92,18 @@ void FaceEngine::SetState(FaceState state) {
     state_ = state;
 }
 
+void FaceEngine::RequestSleep() {
+    if (sleeping_) {
+        return;
+    }
+    pending_sleep_ = true;
+    pending_speech_seen_ = false;
+    pending_sleep_ms_ = lv_tick_get();
+    ESP_LOGI(TAG, "Sleep requested, waiting for the goodnight to finish");
+}
+
 void FaceEngine::Sleep() {
+    pending_sleep_ = false;
     if (sleeping_) {
         return;
     }
@@ -109,6 +120,7 @@ void FaceEngine::WakeUp() {
         return;
     }
     sleeping_ = false;
+    pending_sleep_ = false;
     state_ = FaceState::Idle;
     stretch_ = 1.0f;  // big stretch blink on wake-up
     ESP_LOGI(TAG, "Face waking up");
@@ -499,6 +511,23 @@ void FaceOnAudioOutput(const int16_t* pcm, size_t samples) {
 void FaceEngine::Update() {
     if (!container_) {
         return;
+    }
+
+    // Bekleyen uyku: once veda cumlesinin bitmesini bekle, sonra gozleri kapat
+    if (pending_sleep_ && !sleeping_) {
+        uint32_t now = lv_tick_get();
+        bool audio_fresh = (now - audio_last_ms_) < 300;
+        if (state_ == FaceState::Speaking || audio_fresh) {
+            pending_speech_seen_ = true;
+        }
+        bool speech_done = pending_speech_seen_ &&
+                           state_ != FaceState::Speaking &&
+                           (now - audio_last_ms_) > 900;
+        // Hic konusma gelmezse de sonsuza kadar bekleme
+        bool timed_out = !pending_speech_seen_ && (now - pending_sleep_ms_) > 8000;
+        if (speech_done || timed_out) {
+            Sleep();
+        }
     }
 
     // Blink state machine (suppressed while sleeping)

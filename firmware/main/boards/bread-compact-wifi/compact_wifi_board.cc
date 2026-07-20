@@ -163,7 +163,8 @@ private:
                 if (face == nullptr) {
                     return false;
                 }
-                face->Sleep();
+                // Once veda cumlesi soylensin, gozler en son kapansin
+                face->RequestSleep();
                 return true;
             });
         mcp_server.AddTool("self.face.wake_up",
