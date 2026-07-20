@@ -1,56 +1,141 @@
+<!-- ============================================================= -->
+<!--  GORSEL: Buraya İva'nın ana fotoğrafı/gif'i (yüz ekranı açık, masada)  -->
+<!--  Yüklemek icin: docs/media/ klasorune koy, sonra asagidaki satiri ac:   -->
+<!--  <p align="center"><img src="docs/media/iva-hero.gif" width="480"></p>  -->
+<!-- ============================================================= -->
+
 # İva — Konuşan Masa Robotu 🤖
 
-ESP32-S3 tabanlı, Türkçe konuşan, duygularını yüzüyle gösteren masaüstü yapay zekâ arkadaşı.
+> ESP32-S3 tabanlı, Türkçe konuşan, duygularını yüzüyle gösteren, not alıp Telegram'a yazan masaüstü yapay zekâ arkadaşı.
+
+İva; sesle uyanır, seninle Türkçe sohbet eder, konuşurken duygusuna göre yüz ifadesi değiştirir,
+sözünü kesip yeni komut verebilirsin, not tutar, hatırlatma kurar ve her akşam gününü Telegram'a özetler.
 [xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) projesi üzerine kurulmuş; kendi yüz motoru,
 Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
 
-## Neler yapabiliyor?
+<!-- Rozet satırı (istege bagli, suslu durur) -->
+`ESP32-S3` · `ESP-IDF 5.5` · `Türkçe` · `MCP` · `Python` · `Docker`
 
-- 🎙️ **Sesle uyanır** — "Jarvis" veya "Computer" (aynı anda iki kelime aktif)
-- 🇹🇷 **Türkçe konuşur** — Türkçe firmware + Türkçe ses (Edge TTS)
-- 😊 **Duygularını gösterir** — 21 duygu, animasyonlu göz/kaş/ağız (mutlu, üzgün, kızgın, şaşkın...)
-- 👄 **Gerçek dudak senkronu** — ağız, hoparlöre giden sesin gücüne göre hareket eder
-- 😴 **Uyur** — "uyu" dendiğinde gözlerini kapatır, uyandırma kelimesine kadar uyanmaz
-- 📝 **Not alır** — sesli not, arama, günlük döküm
-- 📨 **Telegram'a yazar** — notları gönderir, her akşam otomatik özet geçer
-- 🧠 **Mod günlüğü tutar** — ruh halini kaydeder, geçmişini raporlar
-- 📊 **Projeleri hatırlar** — durumlarını takip eder, sorar
-- ⏰ **Hatırlatıcı kurar**, hesap yapar, tarih/saat söyler
-- 🖥️ **Ekran değiştirir** — "durum ekranını göster" / "yüzünü göster"
+---
 
-## Mimari
+## 📑 İçindekiler
+
+- [Ne yapabiliyor?](#-ne-yapabiliyor)
+- [Nasıl çalışıyor? (mimari)](#-nasıl-çalışıyor-mimari)
+- [Hangi parça neye bağlı?](#-hangi-parça-neye-bağlı)
+- [Kurulum](#-kurulum)
+- [Donanım](#-donanım)
+- [Yüz motoru](#-yüz-motoru)
+- [İva'nın araçları](#-i̇vanın-araçları)
+- [Sesli komut sözlüğü](#-sesli-komut-sözlüğü)
+- [Klasör yapısı](#-klasör-yapısı)
+- [Yol haritası](#-yol-haritası)
+- [Lisans ve teşekkür](#-lisans-ve-teşekkür)
+
+---
+
+## ✨ Ne yapabiliyor?
+
+| | Özellik | Açıklama |
+|---|---|---|
+| 🎙️ | **Sesle uyanma** | "Jarvis" veya "Computer" — aynı anda iki kelime aktif |
+| ✋ | **Sözünü kesme (barge-in)** | İva uzun konuşurken uyandırma kelimesini duyunca durup seni dinler |
+| 🇹🇷 | **Türkçe konuşma** | Türkçe firmware + Türkçe ses (Edge TTS "Emel") |
+| 😊 | **Duygulu yüz** | 21 duygu → animasyonlu göz/kaş/ağız (mutlu, üzgün, kızgın, şaşkın, aşık...) |
+| 👄 | **Gerçek dudak senkronu** | Ağız, hoparlöre giden sesin şiddetine göre hareket eder |
+| 😴 | **Gerçek uyku** | "uyu" deyince veda edip gözlerini kapatır; uyandırma kelimesine kadar uyanmaz |
+| 📝 | **Not sistemi** | Sesli not, arama, günlük döküm |
+| 📨 | **Telegram** | Notları gönderir, her akşam otomatik gün özeti geçer |
+| ⏰ | **Kalıcı hatırlatıcılar** | "her gün 9'da ilaç hatırlat" — PC kapansa bile kaybolmaz |
+| 🍅 | **Pomodoro** | "25 dakika odaklanacağım" → süre bitince Telegram'dan haber |
+| 🧠 | **Mod & alışkanlık takibi** | "bugün yorgunum", "bugün spor yaptım" → seri tutar |
+| 📊 | **Proje hafızası** | Projelerinin durumunu hatırlar, sorar |
+| 🌤️ | **Hava durumu** | 12 Türk şehri, API anahtarı gerektirmez |
+| 🖥️ | **Ekran geçişi** | "durum ekranını göster" / "yüzünü göster" |
+
+<!-- ============================================================= -->
+<!--  GORSEL: 3-4'lu kare gif kolajı önerilir:                              -->
+<!--    mutlu yüz | üzgün yüz | konuşurken ağız | uyku (zzz)                 -->
+<!--  docs/media/ altina koyup asagiyi ac:                                  -->
+<!--  | ![mutlu](docs/media/happy.gif) | ![üzgün](docs/media/sad.gif) |     -->
+<!--  |---|---|                                                              -->
+<!--  | ![konuşma](docs/media/talk.gif) | ![uyku](docs/media/sleep.gif) |   -->
+<!-- ============================================================= -->
+
+---
+
+## 🔧 Nasıl çalışıyor? (mimari)
+
+İva üç parçadan oluşur ve her biri farklı yerde çalışır:
 
 ```
-┌──────────────┐   ses    ┌──────────────┐   araçlar   ┌──────────────┐
-│  ESP32-S3    │ ───────► │   Sunucu     │ ──────────► │ Iva Araçları │
-│  (firmware)  │ ◄─────── │ (bulut/yerel)│ ◄────────── │  (MCP/Python)│
-└──────────────┘  yanıt   └──────────────┘             └──────────────┘
-   yüz + mikrofon           ASR→LLM→TTS                not/Telegram/mod
-   + hoparlör + OLED
+   ┌─────────────────┐      ses       ┌──────────────────┐    araç çağrısı   ┌────────────────┐
+   │   ESP32-S3      │ ─────────────► │     SUNUCU        │ ────────────────► │  İVA ARAÇLARI  │
+   │   (cihaz)       │                │  (bulut / yerel)  │                   │  (senin PC'n)  │
+   │                 │ ◄───────────── │                   │ ◄──────────────── │                │
+   └─────────────────┘   sesli yanıt  └──────────────────┘    araç sonucu     └────────────────┘
+    mikrofon · hoparlör                 ASR → LLM → TTS         MCP protokolü    not · Telegram
+    OLED yüz · uyandırma                 (konuşmayı anlar,                        mod · hatırlatıcı
+    kelimesi (offline)                   düşünür, seslendirir)                    hava · pomodoro
 ```
 
-İki sunucu seçeneği desteklenir:
+**Adım adım bir konuşma:**
+
+1. **"Jarvis"** dersin → cihaz bunu **kendi içinde** (internetsiz) algılar, uyanır
+2. Konuşman ses olarak **sunucuya** gider
+3. Sunucu sırayla: sesi yazıya çevirir (**ASR**) → cevabı üretir (**LLM**) → yazıyı sese çevirir (**TTS**)
+4. Cevap sana **sesli** döner, yüz de duyguya göre değişir
+5. Cevap bir iş gerektiriyorsa ("not al") sunucu **İva Araçları'na** komut yollar (MCP)
+
+> **Önemli:** Cihazda çalışan tek yapay zekâ parçası uyandırma kelimesidir. Geri kalan her şey
+> sunucudadır — bu yüzden cihaz internetsiz sohbet edemez.
+
+### İki sunucu seçeneği
 
 | | Resmî sunucu (xiaozhi.me) | Kendi sunucun (`server/`) |
 |---|---|---|
-| Kurulum | Kolay, hesap açman yeter | Docker + API anahtarı |
-| Türkçe ses tanıma | Sınırlı | Groq Whisper (çok iyi) |
-| Müzik | Çince katalog | Kendi mp3'lerin |
-| Gizlilik | Bulutta | Tamamen yerel ağda |
-| Bağlılık | İnternet | PC açık olmalı |
+| **Kurulum** | Kolay — hesap açman yeter | Docker + ücretsiz Groq anahtarı |
+| **Türkçe ses tanıma** | Sınırlı | Groq Whisper (çok iyi) |
+| **Ses (TTS)** | Konsoldan seçilir | Türkçe Edge TTS |
+| **Müzik** | Çince katalog | Kendi mp3'lerin |
+| **Gizlilik** | Bulutta işlenir | Tamamen yerel ağda |
+| **Bağımlılık** | İnternet | PC + Docker açık olmalı |
 
-## Klasörler
+---
 
-| Klasör | İçerik |
+## 🧩 Hangi parça neye bağlı?
+
+Sistemin çalışması için **neyin açık olması gerektiği** — sorun çıkınca buraya bak:
+
+| Özellik | Çalışması için gereken |
 |---|---|
-| [`firmware/`](firmware/) | ESP32 tarafı: yüz motoru, kart yapılandırması, değiştirilmiş dosyalar |
-| [`bridge/`](bridge/) | İva'nın araçları (MCP sunucusu): not, Telegram, mod, proje, hatırlatıcı |
-| [`server/`](server/) | Kendi sunucun: Docker yapılandırması, Türkçe ASR/LLM/TTS ayarları, testler |
-| [`docs/`](docs/) | Donanım şeması ve mimari notları |
+| Uyanma, temel yüz animasyonu | Sadece cihaz (elektrik) — internetsiz çalışır |
+| Sohbet (konuşma/dinleme) | Cihaz + WiFi + sunucu (resmî ya da kendi) |
+| Türkçe cevap sesi | Sunucudaki TTS ayarı (resmî: konsol, kendi: Edge TTS) |
+| Not / Telegram / hatırlatıcı araçları | **Köprü açık olmalı** (`start_iva_bridge.bat`) + `.env` dolu |
+| Telegram'a mesaj | Köprü + geçerli `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` |
+| Kendi sunucu (Türkçe Whisper, müzik) | Docker Desktop açık + `iva-server` konteyneri + Groq anahtarı |
+| Otomatik günlük özet (21:00) | Köprü o saatte açık olmalı |
 
-## Hızlı başlangıç
+**Bağımlılık zinciri kısaca:**
 
-Yeni bir bilgisayarda tek komutla kurulur:
+```
+Cihaz ──WiFi──► Sunucu ──MCP──► Köprü ──► Telegram / dosyalar
+  │               │                │
+elektrik      internet+        PC açık +
+              (Docker)         .env dolu
+```
+
+<!-- ============================================================= -->
+<!--  GORSEL: İstersen buraya kendi çizdiğin/çektiğin bağlantı şemasının     -->
+<!--  fotoğrafını koyabilirsin: docs/media/baglanti-semasi.jpg              -->
+<!-- ============================================================= -->
+
+---
+
+## 🚀 Kurulum
+
+Yeni bir bilgisayarda **tek komutla** kurulur:
 
 ```powershell
 git clone https://github.com/Talha-Dogan/iva_desk_pet.git
@@ -58,19 +143,22 @@ cd iva_desk_pet
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-Betik sanal ortamı kurar, bağımlılıkları yükler, `.env` şablonunu hazırlar ve
-Windows açılışına otomatik başlatma ekler. Ardından `bridge\.env` dosyasına
-anahtarlarını yazman yeterli. Ayrıntılar: [docs/kurulum.md](docs/kurulum.md)
+Bu betik: sanal ortamı kurar, bağımlılıkları yükler, `.env` şablonunu hazırlar ve
+Windows açılışına otomatik başlatma ekler. Ardından `bridge\.env` dosyasına anahtarlarını
+yazman yeterli.
+
+Adım adım anlatım ve sorun giderme: **[docs/kurulum.md](docs/kurulum.md)**
 
 Diğer belgeler:
+- 🔌 [docs/donanim.md](docs/donanim.md) — kablolama şeması
+- 💾 [firmware/README.md](firmware/README.md) — firmware derleme ve yükleme
+- 🛠️ [bridge/README.md](bridge/README.md) — araçlar (not/Telegram/mod)
+- 🖥️ [server/README.md](server/README.md) — kendi sunucun
+- 🧠 [docs/mimari.md](docs/mimari.md) — tasarım kararları ("neden böyle yapıldı")
 
-1. **Donanım:** [docs/donanim.md](docs/donanim.md) — kablolama şeması
-2. **Firmware:** [firmware/README.md](firmware/README.md) — derleme ve yükleme
-3. **Araçlar:** [bridge/README.md](bridge/README.md) — not/Telegram sistemi
-4. **Kendi sunucun (opsiyonel):** [server/README.md](server/README.md)
-5. **Mimari:** [docs/mimari.md](docs/mimari.md) — tasarım kararları
+---
 
-## Donanım
+## 🔌 Donanım
 
 | Parça | Model | Not |
 |---|---|---|
@@ -79,28 +167,122 @@ Diğer belgeler:
 | Amfi | MAX98357A | I2S dijital |
 | Ekran | SSD1306 OLED | 128x64, I2C |
 
-> **Not:** 4MB flash bazı özellikleri kısıtlar (OTA güncelleme ve özel uyandırma kelimesi yok).
-> 16MB'lık bir S3 kartı bu kısıtları kaldırır.
+<!-- ============================================================= -->
+<!--  GORSEL: Breadboard'un fotoğrafı buraya çok yakışır                    -->
+<!--  docs/media/donanim.jpg                                                -->
+<!-- ============================================================= -->
 
-## Yol haritası
+**Pin bağlantıları:**
+
+| Parça | Bacak → GPIO |
+|---|---|
+| Mikrofon (INMP441) | SD→6, WS→7, SCK→8 |
+| Amfi (MAX98357A) | DIN→12, BCLK→11, LRC→10, GAIN→GND |
+| OLED (SSD1306) | SDA→4, SCL→3 |
+| Dahili RGB LED | 21 |
+
+> **Not:** 4MB flash bazı özellikleri kısıtlar (kablosuz güncelleme ve özel "iva" uyandırma
+> kelimesi yok). 16MB'lık bir S3 kartı bu kısıtları kaldırır.
+
+---
+
+## 😊 Yüz motoru
+
+Sıfırdan yazılmış animasyonlu yüz; [Anki Cozmo/Vector](https://www.fastcompany.com/3061276/meet-cozmo-the-pixar-inspired-ai-powered-robot-that-feels)
+prensiplerinden ilham alır.
+
+- **Durumlar:** Bekleme (gezinen bakış, göz kırpma) → Dinleme (gözler büyür) →
+  Konuşma (sese göre ağız) → Uyku (kapalı gözler, nefes alma)
+- **Duygular:** Sunucudan gelen duygu etiketi 10 yüz ifadesine eşlenir; 12 saniye sonra
+  doğal ifadeye döner
+- **Enerji dostu:** Ekranda yalnızca göz/ağız yanar (arka plan sönük)
+
+<!-- ============================================================= -->
+<!--  GORSEL: Duygu ifadelerinin yakın çekim gif'i çok etkileyici olur      -->
+<!--  Öneri: her duygu için kısa gif, tablo halinde:                        -->
+<!--  | Mutlu | Üzgün | Kızgın | Şaşkın |                                    -->
+<!--  |-------|-------|--------|--------|                                    -->
+<!--  docs/media/emotion-*.gif                                              -->
+<!-- ============================================================= -->
+
+Nasıl çalıştığının detayı: [firmware/README.md](firmware/README.md#yüz-motoru-nasıl-çalışır)
+
+---
+
+## 🛠️ İva'nın araçları
+
+Köprü (`bridge/`) üzerinden yapay zekâya açılan **27 araç**. Tam liste ve örnek komutlar:
+[bridge/README.md](bridge/README.md)
+
+Kategoriler: **notlar**, **görevler & odak (Pomodoro)**, **kalıcı hatırlatıcılar**,
+**kişisel takip** (mod/günlük/alışkanlık/proje), **hava durumu**, ve **temel araçlar**
+(hesap makinesi, saat, zar).
+
+---
+
+## 🗣️ Sesli komut sözlüğü
+
+Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köprü açıkken):
+
+| Söyle | İva ne yapar |
+|---|---|
+| "Jarvis" / "Computer" | Uyanır ve dinler |
+| *(konuşurken)* "Jarvis" | Durur, seni dinler |
+| "uyu" / "uyan" | Uyur / uyanır |
+| "not al: ..." | Not kaydeder |
+| "bugün ne not aldım?" | Notları okur |
+| "notları Telegram'a gönder" | Gruba gönderir |
+| "listeye ekle: ..." | Görev ekler |
+| "25 dakika odaklanacağım" | Pomodoro başlatır |
+| "her gün 9'da ilaç hatırlat" | Kalıcı hatırlatıcı kurar |
+| "bugün yorgunum" | Modunu kaydeder |
+| "İstanbul'da hava nasıl?" | Hava durumu |
+| "durum ekranını göster" | Bilgi ekranına geçer |
+
+---
+
+## 📁 Klasör yapısı
+
+| Klasör | İçerik |
+|---|---|
+| [`firmware/`](firmware/) | ESP32 tarafı: yüz motoru, pin haritası, değiştirilmiş kaynaklar |
+| [`bridge/`](bridge/) | İva'nın araçları (MCP sunucusu) |
+| [`server/`](server/) | Kendi sunucun: Docker + Türkçe ASR/LLM/TTS + testler |
+| [`scripts/`](scripts/) | Kurulum, otomatik başlatma, repo senkron betikleri |
+| [`docs/`](docs/) | Donanım, mimari, kurulum belgeleri |
+
+> Bu repo çalışma klasörünün **düzenlenmiş kopyasıdır** — 1 GB'lık firmware ağacını değil,
+> yalnızca yazdığımız/değiştirdiğimiz dosyaları içerir. Gizli anahtarlar `.gitignore` ile dışarıda.
+
+---
+
+## 🗺️ Yol haritası
 
 - [x] Türkçe firmware + iki uyandırma kelimesi
 - [x] Duygulara tepki veren animasyonlu yüz
 - [x] Gerçek dudak senkronu, düşük güç ekran çizimi
-- [x] Not / Telegram / mod / proje / hatırlatıcı araçları
+- [x] Sözünü kesme (barge-in)
+- [x] 27 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
+- [x] Kalıcı hatırlatıcılar + otomatik yedekleme
 - [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
 - [x] Windows açılışında otomatik başlatma + tek komutluk kurulum
-- [ ] Kalıcı hatırlatıcılar ve veri yedeği
-- [ ] Sesli oyunlar ve Pomodoro modu
 - [ ] Ders/toplantı kayıt ve özet modu
+- [ ] Sesli oyunlar (bilmece, 20 soru)
 - [ ] Home Assistant ile akıllı ev kontrolü
-- [ ] 3D baskı kasa
+- [ ] Kendi müzik arşivi (kendi sunucuda)
+- [ ] 3D baskı kasa + 16MB karta geçiş
 
-## Lisans ve teşekkür
+---
+
+## 📜 Lisans ve teşekkür
 
 MIT. Bu proje şunların üzerine kuruludur:
 
 - [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) (MIT) — ana firmware
 - [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) — kendi sunucu
 - [TechTalkies/Face-for-Xiaozhi](https://github.com/TechTalkies/Face-for-Xiaozhi) (MIT) — yüz motorunun ilk fikri
-- Göz animasyonu tasarımında Anki Cozmo/Vector prensiplerinden ilham alınmıştır
+- Göz animasyonunda Anki Cozmo/Vector tasarım prensiplerinden ilham alınmıştır
+
+---
+
+<p align="center"><i>Talha'nın masasında yaşıyor 🤖</i></p>
