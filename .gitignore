@@ -1,0 +1,30 @@
+# --- Gizli bilgiler (asla commit etme) ---
+.env
+*.env
+!.env.example
+server/config.yaml
+server/data/.config.yaml
+**/secrets.*
+
+# --- Kisisel veriler ---
+bridge/data/
+server/data/
+server/music/*
+!server/music/.gitkeep
+server/tmp/
+
+# --- Python ---
+venv/
+__pycache__/
+*.pyc
+
+# --- ESP-IDF derleme ciktilari ---
+build/
+managed_components/
+dependencies.lock
+sdkconfig.old
+
+# --- Isletim sistemi ---
+Thumbs.db
+desktop.ini
+.DS_Store

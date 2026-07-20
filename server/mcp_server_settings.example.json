@@ -1,0 +1,9 @@
+{
+  "_aciklama": "Bu dosyayi data/.mcp_server_settings.json olarak kopyala. Iva'nin araclari (bridge/tools_http.py) HTTP uzerinden buradan baglanir.",
+  "mcpServers": {
+    "iva-tools": {
+      "url": "http://host.docker.internal:8090/mcp",
+      "transport": "streamable-http"
+    }
+  }
+}

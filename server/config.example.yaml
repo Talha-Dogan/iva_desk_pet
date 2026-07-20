@@ -1,0 +1,71 @@
+# Iva - kendi sunucu yapilandirmasi
+# Bu dosyayi "data/.config.yaml" olarak kopyala ve anahtarlarini yaz.
+# Varsayilan config.yaml'i EZER; sadece degistirmek istedigimiz alanlar burada.
+
+server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  # Cihazin baglanacagi adres: sunucunun calistigi PC'nin yerel IP'si
+  websocket: ws://SENIN_YEREL_IP:8000/xiaozhi/v1/
+  timezone_offset: +3
+  auth:
+    enabled: false
+
+log:
+  log_level: INFO
+
+# Iva'nin karakteri (sunucu tarafinda calisir)
+prompt: |
+  Senin adin Iva. Talha'nin masasinda yasayan sevimli, esprili bir robot arkadassin.
+  Her zaman ve yalnizca Turkce konusursun. Cevaplarin kisa, dogal ve samimidir;
+  uzun paragraflar kurmazsin, sohbet eder gibi konusursun.
+  Bilmedigin seyi uydurmazsin. Ara sira hafif sakalar yaparsin.
+  Muzik istenirse play_music aracini kullanirsin.
+
+selected_module:
+  VAD: SileroVAD
+  ASR: GroqASR      # Turkce icin Whisper (yerel SenseVoice Turkce bilmiyor)
+  LLM: GroqLLM
+  TTS: EdgeTTS      # Turkce sesler ucretsiz
+  Memory: mem_local_short
+  Intent: function_call
+
+ASR:
+  GroqASR:
+    type: openai
+    api_key: GROQ_API_ANAHTARIN      # https://console.groq.com/keys
+    base_url: https://api.groq.com/openai/v1/audio/transcriptions
+    model_name: whisper-large-v3-turbo
+    output_dir: tmp/
+
+LLM:
+  GroqLLM:
+    type: openai
+    model_name: llama-3.3-70b-versatile
+    url: https://api.groq.com/openai/v1/
+    api_key: GROQ_API_ANAHTARIN
+
+TTS:
+  EdgeTTS:
+    type: edge
+    # Turkce sesler: tr-TR-EmelNeural (kadin), tr-TR-AhmetNeural (erkek)
+    voice: tr-TR-EmelNeural
+    output_dir: tmp/
+
+Intent:
+  function_call:
+    type: function_call
+    functions:
+      - change_role
+      - play_music
+      - get_weather
+
+plugins:
+  play_music:
+    music_dir: "./music"
+    music_ext:
+      - ".mp3"
+      - ".wav"
+      - ".p3"
+    refresh_time: 300

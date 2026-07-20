@@ -1,0 +1,17 @@
+services:
+  xiaozhi-esp32-server:
+    image: ghcr.io/xinnan-tech/xiaozhi-esp32-server:server_latest
+    container_name: iva-server
+    restart: always
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - TZ=Europe/Istanbul
+    ports:
+      # WebSocket - cihazin bagalandigi port
+      - "8000:8000"
+      # HTTP - OTA / gorsel analiz arayuzu
+      - "8003:8003"
+    volumes:
+      - ./data:/opt/xiaozhi-esp32-server/data
+      - ./music:/opt/xiaozhi-esp32-server/music
