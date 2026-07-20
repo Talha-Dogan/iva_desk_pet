@@ -8,6 +8,8 @@ server/data/.config.yaml
 
 # --- Kisisel veriler ---
 bridge/data/
+bridge/logs/
+bridge/bridge.lock
 server/data/
 server/music/*
 !server/music/.gitkeep

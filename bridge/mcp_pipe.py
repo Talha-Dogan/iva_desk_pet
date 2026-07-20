@@ -8,6 +8,7 @@ Kullanim:
 Endpoint adresi .env dosyasindaki MCP_ENDPOINT degiskeninden okunur.
 """
 import asyncio
+import atexit
 import logging
 import os
 import random
@@ -19,9 +20,41 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger("iva-bridge")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCK_FILE = os.path.join(BASE_DIR, "bridge.lock")
 
 INITIAL_BACKOFF = 1
 MAX_BACKOFF = 60
+
+
+def _pid_alive(pid):
+    try:
+        import ctypes
+        # OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION=0x1000)
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if h:
+            ctypes.windll.kernel32.CloseHandle(h)
+            return True
+        return False
+    except Exception:
+        return True  # emin degilsek yasiyor say (yanlislikla ikinci baslatma acmayalim)
+
+
+def acquire_single_instance_lock():
+    """Ayni anda tek kopru calissin. Zaten bir kopru varsa temiz cikar; boylece
+    art arda baslatmalar mukerrer baglanti (ve arac listesi karisikligi) yaratmaz."""
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, encoding="utf-8") as f:
+                old_pid = int(f.read().strip() or "0")
+            if old_pid and old_pid != os.getpid() and _pid_alive(old_pid):
+                log.warning("Zaten calisan bir kopru var (pid %s). Bu ornek kapaniyor.",
+                            old_pid)
+                sys.exit(0)
+        except (ValueError, OSError):
+            pass  # bozuk kilit dosyasi - uzerine yaz
+    with open(LOCK_FILE, "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+    atexit.register(lambda: os.path.exists(LOCK_FILE) and os.remove(LOCK_FILE))
 
 
 def load_env():
@@ -95,6 +128,7 @@ async def run_once(endpoint, script):
 
 async def main():
     load_env()
+    acquire_single_instance_lock()
     endpoint = os.environ.get("MCP_ENDPOINT", "").strip()
     if not endpoint.startswith("wss://"):
         log.error("MCP_ENDPOINT ayarlanmamis!")

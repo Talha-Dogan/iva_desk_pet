@@ -60,10 +60,12 @@ if (Test-Path $sdk) {
 
 Write-Host "$copied dosya guncellendi."
 
-# Guvenlik: gizli bilgi taramasi
-$patterns = 'gsk_[A-Za-z0-9]{20,}|\d{9,10}:AA[A-Za-z0-9_-]{30,}|token=eyJ'
-$hits = Get-ChildItem $repo -Recurse -File -Exclude ".git" |
-        Where-Object { $_.FullName -notmatch "\\\.git\\" } |
+# Guvenlik: gizli bilgi taramasi (kalip parcali yazildi ki bu betik kendini
+# yanlislikla "sizinti" olarak yakalamasin)
+$patterns = ('gsk' + '_[A-Za-z0-9]{20,}') + '|' + ('\d{9,10}:' + 'AA[A-Za-z0-9_-]{30,}') + '|' + ('token=' + 'eyJ')
+$selfName = Split-Path -Leaf $MyInvocation.MyCommand.Path
+$hits = Get-ChildItem $repo -Recurse -File |
+        Where-Object { $_.FullName -notmatch "\\\.git\\" -and $_.Name -ne $selfName } |
         Select-String -Pattern $patterns -List -ErrorAction SilentlyContinue
 
 if ($hits) {

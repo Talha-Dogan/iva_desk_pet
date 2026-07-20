@@ -19,6 +19,7 @@ import os
 import random
 import shutil
 import threading
+import urllib.parse
 import urllib.request
 
 from mcp.server.fastmcp import FastMCP
@@ -26,11 +27,21 @@ from mcp.server.fastmcp import FastMCP
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 NOTES_DIR = os.path.join(DATA_DIR, "notes")
+BACKUP_DIR = os.path.join(DATA_DIR, "backups")
 MOOD_FILE = os.path.join(DATA_DIR, "mood_log.jsonl")
 PROJECTS_FILE = os.path.join(DATA_DIR, "projects.json")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
+REMINDERS_FILE = os.path.join(DATA_DIR, "reminders.json")
+TASKS_FILE = os.path.join(DATA_DIR, "tasks.json")
+HABITS_FILE = os.path.join(DATA_DIR, "habits.json")
+JOURNAL_FILE = os.path.join(DATA_DIR, "journal.jsonl")
 
 os.makedirs(NOTES_DIR, exist_ok=True)
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+# Tum dosya yazimlarini seri hale getiren tek kilit (es zamanli arac cagrilari
+# ayni dosyayi bozmasin diye).
+_file_lock = threading.RLock()
 
 
 def _load_env():
@@ -107,8 +118,29 @@ def _load_json(path, default):
 
 
 def _save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    # Atomik yazim: once benzersiz bir .tmp'ye yaz, sonra yerine tasi. Yazma
+    # sirasinda cokme olsa bile asil dosya bozulmaz. Gecici ad sirece ozgu
+    # (pid) ki ayni klasoru kullanan iki sirec ayni tmp'de cakismasin.
+    with _file_lock:
+        tmp = f"{path}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+
+
+def _append_jsonl(path, entry):
+    with _file_lock:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 # ---------------------------------------------------------------- notes
@@ -120,11 +152,12 @@ def save_note(text: str, category: str = "genel") -> str:
     category: ders, toplanti, fikir, yapilacak veya genel olabilir."""
     now = _now()
     path = _note_path(_today_str())
-    is_new = not os.path.exists(path)
-    with open(path, "a", encoding="utf-8") as f:
-        if is_new:
-            f.write(f"# {_today_str()} {DAYS_TR[now.weekday()]}\n\n")
-        f.write(f"- [{now.strftime('%H:%M')}] ({category}) {text}\n")
+    with _file_lock:
+        is_new = not os.path.exists(path)
+        with open(path, "a", encoding="utf-8") as f:
+            if is_new:
+                f.write(f"# {_today_str()} {DAYS_TR[now.weekday()]}\n\n")
+            f.write(f"- [{now.strftime('%H:%M')}] ({category}) {text}\n")
     return f"Not kaydedildi ({category})."
 
 
@@ -199,8 +232,7 @@ def log_mood(mood: str, score: int = 0, note: str = "") -> str:
         "score": max(0, min(int(score), 10)),
         "note": note,
     }
-    with open(MOOD_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    _append_jsonl(MOOD_FILE, entry)
     return "Mod kaydedildi."
 
 
@@ -253,23 +285,346 @@ def update_project(name: str, status: str) -> str:
 
 
 # ---------------------------------------------------------------- reminders
+#
+# Hatirlaticilar DISKTE tutulur (data/reminders.json). Kopru kapanip acilsa bile
+# kaybolmaz: acilista yeniden yuklenir, gecmis olanlar hemen gonderilir.
+# Arka planda bir izleyici her 20 saniyede bir suresi gelenleri tetikler.
+
+_reminders_lock = threading.RLock()
+
+
+def _load_reminders():
+    return _load_json(REMINDERS_FILE, [])
+
+
+def _save_reminders(items):
+    _save_json(REMINDERS_FILE, items)
+
+
+def _fire_reminder(rem):
+    ok, _ = _telegram_send(f"⏰ Hatirlatma: {rem['message']}")
+    return ok
+
+
+def _reminder_loop():
+    while True:
+        try:
+            now_ts = _now().timestamp()
+            with _reminders_lock:
+                items = _load_reminders()
+                remaining = []
+                changed = False
+                for rem in items:
+                    if rem.get("done"):
+                        continue
+                    if rem["due_ts"] <= now_ts:
+                        if _fire_reminder(rem):
+                            changed = True
+                            if rem.get("repeat_hours"):
+                                rem["due_ts"] += rem["repeat_hours"] * 3600
+                                remaining.append(rem)
+                            # tek seferlikler dusuyor
+                        else:
+                            remaining.append(rem)  # gonderilemedi, tekrar dene
+                    else:
+                        remaining.append(rem)
+                if changed:
+                    _save_reminders(remaining)
+        except Exception:
+            pass
+        threading.Event().wait(20)
+
 
 @mcp.tool()
 def set_reminder(minutes: int, message: str) -> str:
-    """Hatirlatici kurar; suresi gelince Telegram'dan mesaj gider. Sets a reminder.
-    Kullanici 'X dakika sonra hatirlat' dediginde cagir. minutes: kac dakika sonra."""
+    """Belirtilen dakika sonra Telegram'dan hatirlatma gonderir. Sets a one-off reminder.
+    Kullanici 'X dakika/saat sonra hatirlat' dediginde cagir. minutes: kac dakika sonra.
+    Hatirlaticilar diskte tutulur; bilgisayar kapanip acilsa bile kaybolmaz."""
     token, chat_id = _telegram_config()
     if not token or not chat_id:
         return "Hatirlatici icin once Telegram ayarlanmali (.env)."
-    minutes = max(1, min(int(minutes), 24 * 60))
+    minutes = max(1, min(int(minutes), 60 * 24 * 30))
+    due = _now() + datetime.timedelta(minutes=minutes)
+    with _reminders_lock:
+        items = _load_reminders()
+        items.append({
+            "id": int(_now().timestamp() * 1000) % 1000000,
+            "message": message,
+            "due_ts": due.timestamp(),
+            "due_human": due.strftime("%d.%m %H:%M"),
+            "repeat_hours": 0,
+            "done": False,
+        })
+        _save_reminders(items)
+    return f"Tamam, {due.strftime('%d.%m %H:%M')} icin hatirlatici kurdum."
 
-    def fire():
-        _telegram_send(f"Hatirlatma: {message}")
 
-    timer = threading.Timer(minutes * 60, fire)
-    timer.daemon = True
-    timer.start()
-    return f"{minutes} dakika sonra Telegram'dan hatirlatacagim."
+@mcp.tool()
+def set_daily_reminder(hour: int, minute: int, message: str) -> str:
+    """Her gun ayni saatte tekrarlayan hatirlatma kurar. Sets a daily repeating reminder.
+    Kullanici 'her gun saat X'te hatirlat' dediginde cagir."""
+    token, chat_id = _telegram_config()
+    if not token or not chat_id:
+        return "Hatirlatici icin once Telegram ayarlanmali (.env)."
+    hour = max(0, min(int(hour), 23))
+    minute = max(0, min(int(minute), 59))
+    now = _now()
+    due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if due <= now:
+        due += datetime.timedelta(days=1)
+    with _reminders_lock:
+        items = _load_reminders()
+        items.append({
+            "id": int(_now().timestamp() * 1000) % 1000000,
+            "message": message,
+            "due_ts": due.timestamp(),
+            "due_human": f"her gun {hour:02d}:{minute:02d}",
+            "repeat_hours": 24,
+            "done": False,
+        })
+        _save_reminders(items)
+    return f"Her gun {hour:02d}:{minute:02d} icin hatirlatici kurdum."
+
+
+@mcp.tool()
+def list_reminders() -> str:
+    """Bekleyen hatirlaticilari listeler. Lists pending reminders."""
+    with _reminders_lock:
+        items = [r for r in _load_reminders() if not r.get("done")]
+    if not items:
+        return "Bekleyen hatirlatici yok."
+    items.sort(key=lambda r: r["due_ts"])
+    lines = []
+    for r in items:
+        tekrar = " (her gun)" if r.get("repeat_hours") == 24 else ""
+        lines.append(f"#{r['id']} - {r['due_human']}{tekrar}: {r['message']}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def cancel_reminder(reminder_id: int) -> str:
+    """Bir hatirlaticiyi iptal eder. Cancels a reminder by its id.
+    Once list_reminders ile id'yi ogren."""
+    with _reminders_lock:
+        items = _load_reminders()
+        before = len(items)
+        items = [r for r in items if r.get("id") != int(reminder_id)]
+        _save_reminders(items)
+    if len(items) < before:
+        return f"#{reminder_id} numarali hatirlatici iptal edildi."
+    return f"#{reminder_id} numarali hatirlatici bulunamadi."
+
+
+# ---------------------------------------------------------------- tasks (yapilacaklar)
+#
+# Notlardan farkli: gorevler tamamlanabilir ve listede kalir.
+
+@mcp.tool()
+def add_task(text: str) -> str:
+    """Yapilacaklar listesine gorev ekler. Adds a to-do task.
+    Kullanici 'sunu yapmam lazim', 'listeye ekle', 'yapilacaklara ekle' dediginde cagir."""
+    with _file_lock:
+        tasks = _load_json(TASKS_FILE, [])
+        tasks.append({
+            "id": (max([t["id"] for t in tasks], default=0) + 1),
+            "text": text,
+            "done": False,
+            "created": _today_str(),
+        })
+        _save_json(TASKS_FILE, tasks)
+    return f"Gorev eklendi: {text}"
+
+
+@mcp.tool()
+def list_tasks(show_done: bool = False) -> str:
+    """Yapilacaklar listesini gosterir. Lists to-do tasks.
+    Kullanici 'ne yapmam lazim', 'listemde ne var', 'gorevlerim' dediginde cagir."""
+    tasks = _load_json(TASKS_FILE, [])
+    if not show_done:
+        tasks = [t for t in tasks if not t.get("done")]
+    if not tasks:
+        return "Listede gorev yok." if not show_done else "Hic gorev yok."
+    lines = []
+    for t in tasks:
+        mark = "[x]" if t.get("done") else "[ ]"
+        lines.append(f"{mark} #{t['id']} {t['text']}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def complete_task(task_id: int) -> str:
+    """Bir gorevi tamamlandi olarak isaretler. Marks a task done.
+    Kullanici 'sunu yaptim', 'X gorevini tamamladim' dediginde cagir."""
+    with _file_lock:
+        tasks = _load_json(TASKS_FILE, [])
+        for t in tasks:
+            if t["id"] == int(task_id):
+                t["done"] = True
+                t["completed"] = _today_str()
+                _save_json(TASKS_FILE, tasks)
+                return f"Tebrikler! '{t['text']}' tamamlandi."
+    return f"#{task_id} numarali gorev bulunamadi."
+
+
+# ---------------------------------------------------------------- pomodoro (odak)
+#
+# Odak seansi: sure boyunca calis, bitince Telegram'dan haber ver.
+# Firmware'e dokunmadan; sadece bildirim tarafi.
+
+@mcp.tool()
+def start_pomodoro(minutes: int = 25, task: str = "") -> str:
+    """Odak (pomodoro) seansi baslatir; sure bitince Telegram'dan haber gelir.
+    Starts a focus session. Kullanici 'odaklanacagim', 'pomodoro baslat',
+    'X dakika calisacagim' dediginde cagir. Varsayilan 25 dakika."""
+    token, chat_id = _telegram_config()
+    minutes = max(1, min(int(minutes), 180))
+    label = f" ({task})" if task else ""
+    due = _now() + datetime.timedelta(minutes=minutes)
+    if token and chat_id:
+        with _reminders_lock:
+            items = _load_reminders()
+            items.append({
+                "id": int(_now().timestamp() * 1000) % 1000000,
+                "message": f"Odak seansi bitti{label}! {minutes} dakika calistin, mola ver.",
+                "due_ts": due.timestamp(),
+                "due_human": due.strftime("%H:%M"),
+                "repeat_hours": 0,
+                "done": False,
+            })
+            _save_reminders(items)
+    return (f"{minutes} dakikalik odak seansi basladi{label}. "
+            f"Bitince ({due.strftime('%H:%M')}) haber verecegim. Basarilar!")
+
+
+# ---------------------------------------------------------------- journal (gunluk)
+#
+# Mod'dan farkli: serbest gunluk yazisi. Aksam bir cumle sorup kaydeder.
+
+@mcp.tool()
+def add_journal(text: str) -> str:
+    """Gunluk defterine bir yazi ekler. Adds a journal entry.
+    Kullanici gununu anlatinca, 'gunlugume yaz', 'bugun sunlar oldu' dediginde cagir."""
+    _append_jsonl(JOURNAL_FILE, {
+        "time": _now().strftime("%Y-%m-%d %H:%M"),
+        "text": text,
+    })
+    return "Gunlugune yazdim."
+
+
+@mcp.tool()
+def read_journal(days: int = 7) -> str:
+    """Son gunlerin gunluk yazilarini getirir. Reads recent journal entries."""
+    if not os.path.exists(JOURNAL_FILE):
+        return "Henuz gunluk yazisi yok."
+    cutoff = _now() - datetime.timedelta(days=max(1, days))
+    lines = []
+    with open(JOURNAL_FILE, encoding="utf-8") as f:
+        for raw in f:
+            try:
+                e = json.loads(raw)
+                t = datetime.datetime.strptime(e["time"], "%Y-%m-%d %H:%M")
+                if t >= cutoff:
+                    lines.append(f"{e['time']}: {e['text']}")
+            except Exception:
+                continue
+    return "\n".join(lines[-30:]) if lines else f"Son {days} gunde gunluk yazisi yok."
+
+
+# ---------------------------------------------------------------- habits (aliskanlik)
+
+@mcp.tool()
+def track_habit(name: str) -> str:
+    """Bir aliskanligi bugun icin isaretler. Marks a habit done for today.
+    Kullanici 'bugun spor yaptim', 'kitap okudum', 'su ictim' gibi tekrarli
+    seyler soyleyince cagir. name: aliskanligin kisa adi (spor, kitap, su...)."""
+    name = name.strip().lower()
+    today = _today_str()
+    with _file_lock:
+        habits = _load_json(HABITS_FILE, {})
+        days = habits.get(name, [])
+        if today in days:
+            return f"'{name}' bugun zaten isaretli. Aferin, seri devam ediyor!"
+        days.append(today)
+        habits[name] = days
+        _save_json(HABITS_FILE, habits)
+    streak = _habit_streak(days)
+    return f"'{name}' isaretlendi. {streak} gunluk seri!"
+
+
+def _habit_streak(days):
+    if not days:
+        return 0
+    dset = set(days)
+    streak = 0
+    d = _now().date()
+    while d.strftime("%Y-%m-%d") in dset:
+        streak += 1
+        d -= datetime.timedelta(days=1)
+    return streak
+
+
+@mcp.tool()
+def habit_status(name: str = "") -> str:
+    """Aliskanlik durumunu/serisini gosterir. Shows habit streaks.
+    name bos ise tum aliskanliklari listeler."""
+    habits = _load_json(HABITS_FILE, {})
+    if not habits:
+        return "Henuz takip edilen aliskanlik yok."
+    if name:
+        name = name.strip().lower()
+        if name not in habits:
+            return f"'{name}' diye bir aliskanlik takip edilmiyor."
+        return f"'{name}': {_habit_streak(habits[name])} gunluk seri, toplam {len(habits[name])} gun."
+    lines = []
+    for h, days in habits.items():
+        lines.append(f"- {h}: {_habit_streak(days)} gunluk seri (toplam {len(days)} gun)")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------- weather (hava durumu)
+
+_TR_CITIES = {
+    "istanbul": (41.01, 28.98), "ankara": (39.93, 32.85), "izmir": (38.42, 27.14),
+    "bursa": (40.19, 29.06), "antalya": (36.90, 30.70), "adana": (37.00, 35.32),
+    "konya": (37.87, 32.48), "gaziantep": (37.07, 37.38), "kayseri": (38.73, 35.48),
+    "eskisehir": (39.78, 30.52), "trabzon": (41.00, 39.72), "samsun": (41.29, 36.33),
+}
+_WMO = {
+    0: "acik", 1: "az bulutlu", 2: "parcali bulutlu", 3: "cok bulutlu",
+    45: "sisli", 48: "sisli", 51: "cisenti", 53: "cisenti", 55: "cisenti",
+    61: "hafif yagmurlu", 63: "yagmurlu", 65: "kuvvetli yagmurlu",
+    71: "hafif karli", 73: "karli", 75: "yogun karli",
+    80: "saganak", 81: "saganak", 82: "kuvvetli saganak",
+    95: "gok gurultulu", 96: "dolu", 99: "dolu",
+}
+
+
+@mcp.tool()
+def get_weather(city: str = "istanbul") -> str:
+    """Bir sehrin hava durumunu soyler. Reports the weather for a Turkish city.
+    Kullanici 'hava nasil', 'X'te hava nasil' dediginde cagir. Ucretsiz, anahtar gerekmez."""
+    key = city.strip().lower()
+    key = (key.replace("ı", "i").replace("ş", "s").replace("ğ", "g")
+              .replace("ü", "u").replace("ö", "o").replace("ç", "c"))
+    if key not in _TR_CITIES:
+        return (f"'{city}' sehrini tanimiyorum. Su sehirler var: "
+                + ", ".join(sorted(_TR_CITIES.keys())))
+    lat, lon = _TR_CITIES[key]
+    try:
+        url = ("https://api.open-meteo.com/v1/forecast?"
+               f"latitude={lat}&longitude={lon}"
+               "&current=temperature_2m,weather_code,wind_speed_10m"
+               "&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FIstanbul")
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        cur = data["current"]
+        daily = data["daily"]
+        desc = _WMO.get(cur["weather_code"], "degisken")
+        return (f"{city.capitalize()}: su an {round(cur['temperature_2m'])}°C, {desc}. "
+                f"Bugun en yuksek {round(daily['temperature_2m_max'][0])}°C, "
+                f"en dusuk {round(daily['temperature_2m_min'][0])}°C.")
+    except Exception as exc:
+        return f"Hava durumuna ulasamadim: {exc}"
 
 
 # ---------------------------------------------------------------- daily digest
@@ -282,13 +637,18 @@ def _digest_loop():
             now = _now()
             today = _today_str()
             if now.hour == digest_hour and state.get("last_digest") != today:
+                parts = [f"🌙 Iva gunluk ozet - {today}"]
                 content = _read_notes(today)
                 if content:
-                    ok, _ = _telegram_send(f"Iva gunluk ozet - {today}:\n\n{content}")
-                    if ok:
-                        state["last_digest"] = today
-                        _save_json(STATE_FILE, state)
-                else:
+                    parts.append("\n📝 Notlar:\n" + content)
+                open_tasks = [t for t in _load_json(TASKS_FILE, [])
+                              if not t.get("done")]
+                if open_tasks:
+                    parts.append("\n✅ Bekleyen gorevler:\n" +
+                                 "\n".join(f"- {t['text']}" for t in open_tasks[:10]))
+                parts.append("\nBugun nasil gecti? Anlatirsan gunlugune yazarim.")
+                ok, _ = _telegram_send("\n".join(parts))
+                if ok:
                     state["last_digest"] = today
                     _save_json(STATE_FILE, state)
         except Exception:
@@ -296,10 +656,36 @@ def _digest_loop():
         threading.Event().wait(60)
 
 
-_token, _chat = _telegram_config()
-if _token and _chat:
-    _digest_thread = threading.Thread(target=_digest_loop, daemon=True)
-    _digest_thread.start()
+def _backup_loop():
+    # Gunde bir kez veri klasorunu zip'ler; son 7 yedegi tutar.
+    while True:
+        try:
+            state = _load_json(STATE_FILE, {})
+            today = _today_str()
+            if state.get("last_backup") != today:
+                stamp = _now().strftime("%Y%m%d")
+                target = os.path.join(BACKUP_DIR, f"iva-data-{stamp}")
+                # backups klasorunu disarida tutmak icin gecici bir liste yerine
+                # dogrudan data altindaki dosyalari zip'liyoruz
+                shutil.make_archive(target, "zip", DATA_DIR, ".")
+                state["last_backup"] = today
+                _save_json(STATE_FILE, state)
+                backups = sorted(
+                    [f for f in os.listdir(BACKUP_DIR) if f.endswith(".zip")])
+                for old in backups[:-7]:
+                    try:
+                        os.remove(os.path.join(BACKUP_DIR, old))
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+        threading.Event().wait(3600)
+
+
+# Arka plan izleyicileri: hatirlaticilar ve yedek Telegram olmadan da anlamli
+# (yukleme/yedek), digest Telegram gerektirir ama kontrolu kendi icinde yapar.
+for _target in (_reminder_loop, _digest_loop, _backup_loop):
+    threading.Thread(target=_target, daemon=True).start()
 
 
 # ---------------------------------------------------------------- utilities

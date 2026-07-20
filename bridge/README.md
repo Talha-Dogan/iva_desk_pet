@@ -32,19 +32,58 @@ Araçların çalışması için ilgili pencerenin açık kalması gerekir.
 
 ## Araçlar
 
+**Notlar**
+
 | Araç | Örnek komut |
 |---|---|
 | `save_note` | "not al: yarın hocaya sor" |
 | `read_today_notes` / `read_notes_by_date` | "bugün ne not aldım?" |
 | `search_notes` | "notlarımda proje kelimesini ara" |
-| `send_notes_to_telegram` | "notları Telegram'a gönder" |
-| `send_telegram_message` | "Telegram'a yaz: geldim" |
+| `send_notes_to_telegram` / `send_telegram_message` | "notları Telegram'a gönder" |
+
+**Görevler ve odak**
+
+| Araç | Örnek komut |
+|---|---|
+| `add_task` / `list_tasks` / `complete_task` | "listeye ekle: rapor yaz", "ne yapmam lazım?", "raporu yaptım" |
+| `start_pomodoro` | "25 dakika odaklanacağım" — süre bitince Telegram'dan haber |
+
+**Hatırlatıcılar** (diskte kalıcı — PC kapanıp açılsa bile kaybolmaz)
+
+| Araç | Örnek komut |
+|---|---|
+| `set_reminder` | "20 dakika sonra çayı hatırlat" |
+| `set_daily_reminder` | "her gün 9'da ilaç hatırlat" |
+| `list_reminders` / `cancel_reminder` | "hatırlatıcılarım", "3 numaralıyı iptal et" |
+
+**Kişisel takip**
+
+| Araç | Örnek komut |
+|---|---|
 | `log_mood` / `get_mood_history` | "bugün yorgunum" / "bu hafta modum nasıldı?" |
+| `add_journal` / `read_journal` | "günlüğüme yaz: ...", "bu hafta neler yazdım?" |
+| `track_habit` / `habit_status` | "bugün spor yaptım", "serilerim ne durumda?" |
 | `list_projects` / `update_project` | "projelerim ne durumda?" |
-| `set_reminder` | "20 dakika sonra hatırlat" |
+
+**Bilgi ve araçlar**
+
+| Araç | Örnek komut |
+|---|---|
+| `get_weather` | "İstanbul'da hava nasıl?" (12 Türk şehri, anahtarsız) |
 | `calculator`, `get_datetime`, `roll_dice`, `disk_status` | "127 çarpı 43", "saat kaç", "zar at" |
 
-Ayrıca her akşam `DIGEST_HOUR` saatinde günün notları otomatik olarak Telegram'a gönderilir.
+Her akşam `DIGEST_HOUR` saatinde günün notları + bekleyen görevler + günlük sorusu
+otomatik olarak Telegram'a gönderilir. Veriler günde bir `data/backups/` altına
+zip'lenir (son 7 yedek tutulur).
+
+## Dayanıklılık
+
+- **Kalıcı hatırlatıcılar:** diskte (`data/reminders.json`), arka planda bir izleyici
+  20 saniyede bir kontrol eder; köprü kapanıp açılsa geçmiş hatırlatıcılar hemen gönderilir
+- **Atomik yazma:** JSON dosyaları geçici dosyaya yazılıp yerine taşınır — yazma sırasında
+  çökme olsa bile veri bozulmaz
+- **Tek örnek kilidi:** aynı anda yalnızca bir köprü çalışır (`bridge.lock`); art arda
+  başlatmalar mükerrer bağlantı yaratmaz
 
 ## Veriler
 
