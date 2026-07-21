@@ -797,6 +797,88 @@ def play_spotify(query: str) -> str:
 
 
 @mcp.tool()
+def music_control(action: str) -> str:
+    """Spotify calmasini kontrol eder. Controls Spotify playback.
+    Kullanici 'durdur/duraklat', 'devam et', 'sonraki sarki', 'onceki sarki',
+    'sesi ac', 'sesi kis' dediginde cagir.
+    action: durdur, devam, sonraki, onceki, sesac, seskis."""
+    sp = _spotify_client()
+    if sp is None:
+        return "Spotify kontrolu icin once kurulum gerekli (spotify_setup.py)."
+    a = action.strip().lower()
+    try:
+        if a in ("durdur", "duraklat", "dur", "pause", "stop"):
+            cur = sp.current_playback()
+            if cur and cur.get("is_playing"):
+                sp.pause_playback()
+                return "Durdurdum."
+            return "Zaten durmus durumda."
+        if a in ("devam", "devam et", "cal", "baslat", "resume", "play"):
+            cur = sp.current_playback()
+            if cur and cur.get("is_playing"):
+                return "Zaten caliyor."
+            sp.start_playback()
+            return "Devam ediyor."
+        if a in ("sonraki", "ileri", "gec", "next", "skip"):
+            sp.next_track()
+            return "Sonraki sarkiya gectim."
+        if a in ("onceki", "geri", "previous", "prev", "back"):
+            sp.previous_track()
+            return "Onceki sarkiya dondum."
+        if a in ("sesac", "ses ac", "sesi ac", "yukselt", "louder", "up"):
+            cur = sp.current_playback()
+            vol = (cur["device"]["volume_percent"] if cur and cur.get("device")
+                   else 50)
+            new = min(100, vol + 15)
+            sp.volume(new)
+            return f"Sesi actim, su an %{new}."
+        if a in ("seskis", "ses kis", "sesi kis", "alcalt", "quieter", "down"):
+            cur = sp.current_playback()
+            vol = (cur["device"]["volume_percent"] if cur and cur.get("device")
+                   else 50)
+            new = max(0, vol - 15)
+            sp.volume(new)
+            return f"Sesi kistim, su an %{new}."
+        return ("Bunu anlamadim. Diyebileceklerin: durdur, devam, sonraki, "
+                "onceki, sesi ac, sesi kis.")
+    except Exception as exc:
+        return f"Kontrol hatasi: {exc}. Spotify acik ve calarken dene."
+
+
+@mcp.tool()
+def set_music_volume(level: int) -> str:
+    """Spotify ses seviyesini belirli bir degere ayarlar (0-100).
+    Sets Spotify volume. Kullanici 'sesi %50 yap', 'sesi yariya indir' dediginde cagir."""
+    sp = _spotify_client()
+    if sp is None:
+        return "Spotify kontrolu icin once kurulum gerekli."
+    level = max(0, min(int(level), 100))
+    try:
+        sp.volume(level)
+        return f"Ses seviyesini %{level} yaptim."
+    except Exception as exc:
+        return f"Ses ayarlanamadi: {exc}. Spotify acik olmali."
+
+
+@mcp.tool()
+def now_playing() -> str:
+    """Su an Spotify'da ne caldigini soyler. What's playing on Spotify.
+    Kullanici 'su an ne caliyor', 'bu sarki ne' dediginde cagir."""
+    sp = _spotify_client()
+    if sp is None:
+        return "Spotify kurulu degil."
+    try:
+        cur = sp.current_playback()
+        if not cur or not cur.get("item"):
+            return "Su an bir sey calmiyor."
+        it = cur["item"]
+        durum = "caliyor" if cur.get("is_playing") else "durdurulmus"
+        return f"{it['artists'][0]['name']} - {it['name']} ({durum})."
+    except Exception as exc:
+        return f"Bilgi alinamadi: {exc}"
+
+
+@mcp.tool()
 def open_app(app: str) -> str:
     """Bilgisayarda bir uygulama acar. Opens a known desktop application.
     Kullanici 'X uygulamasini ac', 'not defteri ac', 'hesap makinesi ac',
