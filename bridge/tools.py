@@ -713,6 +713,53 @@ def play_youtube(query: str) -> str:
     return f"'{query}' icin YouTube aramasi actim, oynatmak icin ilk videoya dokun."
 
 
+# Bilinen uygulamalar - GUVENLIK: sadece bu listedekiler acilabilir, keyfi
+# komut CALISTIRILMAZ. ("exe", isim) PATH'te aranir; ("uri", adres) ShellExecute.
+_KNOWN_APPS = {
+    "not defteri": ("exe", "notepad"), "notepad": ("exe", "notepad"),
+    "hesap makinesi": ("exe", "calc"), "hesap makinasi": ("exe", "calc"),
+    "calculator": ("exe", "calc"),
+    "paint": ("exe", "mspaint"), "resim": ("exe", "mspaint"),
+    "dosya gezgini": ("exe", "explorer"), "gezgin": ("exe", "explorer"),
+    "explorer": ("exe", "explorer"), "dosyalar": ("exe", "explorer"),
+    "gorev yoneticisi": ("exe", "taskmgr"), "task manager": ("exe", "taskmgr"),
+    "ayarlar": ("uri", "ms-settings:"), "settings": ("uri", "ms-settings:"),
+    "kontrol paneli": ("exe", "control"),
+    "terminal": ("exe", "wt"), "komut istemi": ("exe", "cmd"),
+    "spotify": ("uri", "spotify:"),
+    "vs code": ("exe", "code"), "vscode": ("exe", "code"), "kod": ("exe", "code"),
+    "discord": ("uri", "discord:"),
+    "takvim": ("uri", "outlookcal:"), "saat": ("uri", "ms-clock:"),
+    "kamera": ("uri", "microsoft.windows.camera:"),
+}
+
+
+@mcp.tool()
+def open_app(app: str) -> str:
+    """Bilgisayarda bir uygulama acar. Opens a known desktop application.
+    Kullanici 'X uygulamasini ac', 'not defteri ac', 'hesap makinesi ac',
+    'spotify ac' dediginde cagir. Sadece bilinen uygulamalar acilir."""
+    import os
+    import subprocess
+    key = app.strip().lower()
+    if key not in _KNOWN_APPS:
+        opts = ", ".join(sorted(set(
+            k for k in _KNOWN_APPS if " " not in k or len(k) < 14))[:12])
+        return (f"'{app}' uygulamasini tanimiyorum. Acabildiklerim ornek: {opts}. "
+                f"Web sitesi istiyorsan onu da acabilirim.")
+    kind, target = _KNOWN_APPS[key]
+    try:
+        if kind == "uri":
+            os.startfile(target)
+        else:
+            subprocess.Popen([target], shell=False)
+        return f"{app} aciliyor."
+    except FileNotFoundError:
+        return f"{app} bu bilgisayarda kurulu degil gibi gorunuyor."
+    except Exception as exc:
+        return f"{app} acilamadi: {exc}"
+
+
 # ---------------------------------------------------------------- daily digest
 
 def _digest_loop():
