@@ -12,6 +12,7 @@
 #include "assets/lang_config.h"
 
 #include <esp_log.h>
+#include <esp_random.h>
 #include <driver/i2c_master.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_vendor.h>
@@ -205,6 +206,39 @@ private:
                 }
                 oled->SetFaceMode(true);
                 return true;
+            });
+
+        mcp_server.AddTool("self.trivia_wheel",
+            "Trivia Crack carkini cevirir: ekranda kategoriler (Bilim, Sanat, "
+            "Spor, Tarih, Cografya, Eglence) slot-makinesi gibi doner, bir "
+            "kategoride durur ve cark sesi calar. Kullanici Trivia oynarken "
+            "'cark cevir', 'cark' dediginde cagir. Donen kategori adini "
+            "dondurur; sen o kategoriden bir soru sorarsin.",
+            PropertyList(),
+            [this](const PropertyList& properties) -> ReturnValue {
+                auto oled = static_cast<OledDisplay*>(display_);
+                auto face = GetOledFaceEngine();
+                if (oled == nullptr || face == nullptr) {
+                    return std::string("Eglence");
+                }
+                oled->SetFaceMode(true);
+                int target = esp_random() % FaceEngine::kWheelCount;
+                std::string category = face->WheelCategory(target);
+                face->SpinWheel(target);
+
+                // Cark donerken tik sesleri + durusta ding (yavaslayan ritim)
+                auto& app = Application::GetInstance();
+                int interval = 45;
+                for (int i = 0; i < 24; i++) {
+                    app.PlaySound(Lang::Sounds::OGG_POPUP);
+                    vTaskDelay(pdMS_TO_TICKS(interval));
+                    if (i > 15) interval += 35;
+                    else if (i > 8) interval += 12;
+                }
+                vTaskDelay(pdMS_TO_TICKS(200));
+                app.PlaySound(Lang::Sounds::OGG_SUCCESS);
+                vTaskDelay(pdMS_TO_TICKS(1000));  // secili kategoriyi goster
+                return std::string("Cikan kategori: ") + category;
             });
     }
 

@@ -60,6 +60,27 @@ void FaceEngine::Init(lv_obj_t* parent) {
     lv_obj_set_style_text_color(zzz_label_, lv_color_black(), 0);
     lv_obj_add_flag(zzz_label_, LV_OBJ_FLAG_HIDDEN);
 
+    // Trivia carki: uc satir (ust yari-gorunur, orta-secili, alt yari) +
+    // ortada bir secim cercevesi. Hepsi baslangicta gizli.
+    wheel_frame_ = lv_obj_create(container_);
+    lv_obj_set_size(wheel_frame_, 122, 24);
+    lv_obj_set_style_bg_opa(wheel_frame_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(wheel_frame_, 2, 0);
+    lv_obj_set_style_border_color(wheel_frame_, lv_color_black(), 0);
+    lv_obj_set_style_radius(wheel_frame_, 4, 0);
+    lv_obj_set_scrollbar_mode(wheel_frame_, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_align(wheel_frame_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(wheel_frame_, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t** wheel_lines[] = {&wheel_top_, &wheel_mid_, &wheel_bot_};
+    for (auto pp : wheel_lines) {
+        *pp = lv_label_create(container_);
+        lv_label_set_text(*pp, "");
+        lv_obj_set_style_text_color(*pp, lv_color_black(), 0);
+        lv_obj_set_style_text_align(*pp, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_add_flag(*pp, LV_OBJ_FLAG_HIDDEN);
+    }
+
     uint32_t now = lv_tick_get();
     next_saccade_ms_ = now + 1500;
     next_happy_ms_ = now + 6000;
@@ -70,6 +91,97 @@ void FaceEngine::Init(lv_obj_t* parent) {
             face->Update();
         },
         40, this);
+}
+
+// Trivia Crack kategorileri (ekranda ASCII, Iva sozlu tam Turkce soyler)
+static const char* kWheelCats[FaceEngine::kWheelCount] = {
+    "BILIM", "SANAT", "SPOR", "TARIH", "COGRAFYA", "EGLENCE"};
+
+const char* FaceEngine::WheelCategory(int index) const {
+    if (index < 0 || index >= kWheelCount) {
+        return kWheelCats[0];
+    }
+    return kWheelCats[index];
+}
+
+void FaceEngine::ShowFaceParts(bool show) {
+    lv_obj_t* parts[] = {left_eye_, right_eye_, mouth_};
+    for (auto p : parts) {
+        if (p) {
+            if (show) lv_obj_clear_flag(p, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(p, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if (!show) {
+        lv_obj_t* hide[] = {left_cheek_, right_cheek_, left_brow_,
+                            right_brow_, zzz_label_};
+        for (auto p : hide) {
+            if (p) lv_obj_add_flag(p, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+void FaceEngine::SpinWheel(int target_index) {
+    if (wheel_active_) {
+        return;
+    }
+    wheel_target_ = ((target_index % kWheelCount) + kWheelCount) % kWheelCount;
+    wheel_active_ = true;
+    wheel_settled_ = false;
+    wheel_index_ = rand() % kWheelCount;
+    // Birkac tam tur + hedefe kadar; hep ileri doner
+    int to_target = (wheel_target_ - wheel_index_ + kWheelCount) % kWheelCount;
+    wheel_flips_left_ = kWheelCount * 3 + to_target;
+    wheel_interval_ms_ = 45;
+    wheel_next_flip_ms_ = lv_tick_get();
+
+    ShowFaceParts(false);
+    lv_obj_clear_flag(wheel_frame_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(wheel_top_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(wheel_mid_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(wheel_bot_, LV_OBJ_FLAG_HIDDEN);
+    ESP_LOGI(TAG, "Wheel spin -> %s", kWheelCats[wheel_target_]);
+}
+
+void FaceEngine::UpdateWheel() {
+    uint32_t now = lv_tick_get();
+
+    if (!wheel_settled_) {
+        if (now >= wheel_next_flip_ms_) {
+            wheel_index_ = (wheel_index_ + 1) % kWheelCount;
+            wheel_flips_left_--;
+            // yavaslama: kalan azaldikca aralik buyur
+            if (wheel_flips_left_ < 8) {
+                wheel_interval_ms_ += 35;
+            } else if (wheel_flips_left_ < 16) {
+                wheel_interval_ms_ += 12;
+            }
+            wheel_next_flip_ms_ = now + wheel_interval_ms_;
+            if (wheel_flips_left_ <= 0) {
+                wheel_settled_ = true;
+                wheel_done_ms_ = now + 1200;  // secili kategoriyi bir sure goster
+            }
+        }
+    } else if (now >= wheel_done_ms_) {
+        // carki kapat, normal yuze don
+        wheel_active_ = false;
+        lv_obj_add_flag(wheel_frame_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(wheel_top_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(wheel_mid_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(wheel_bot_, LV_OBJ_FLAG_HIDDEN);
+        ShowFaceParts(true);
+        return;
+    }
+
+    // uc satiri ciz: ust (onceki), orta (secili), alt (sonraki)
+    int prev = (wheel_index_ - 1 + kWheelCount) % kWheelCount;
+    int next = (wheel_index_ + 1) % kWheelCount;
+    lv_label_set_text(wheel_top_, kWheelCats[prev]);
+    lv_label_set_text(wheel_mid_, kWheelCats[wheel_index_]);
+    lv_label_set_text(wheel_bot_, kWheelCats[next]);
+    lv_obj_align(wheel_top_, LV_ALIGN_CENTER, 0, -22);
+    lv_obj_align(wheel_mid_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(wheel_bot_, LV_ALIGN_CENTER, 0, 22);
 }
 
 void FaceEngine::SetState(FaceState state) {
@@ -532,6 +644,12 @@ void FaceOnAudioOutput(const int16_t* pcm, size_t samples) {
 
 void FaceEngine::Update() {
     if (!container_) {
+        return;
+    }
+
+    // Cark donuyorsa normal yuz mantigini atla, sadece carki isle
+    if (wheel_active_) {
+        UpdateWheel();
         return;
     }
 

@@ -31,6 +31,13 @@ public:
     void WakeUp();
     bool IsSleeping() const { return sleeping_; }
     void Update();
+
+    // Trivia carki: kategoriler slot-makinesi gibi kayar, target'ta durur,
+    // sonra normal yuze doner. SpinWheel cagirinca animasyon baslar.
+    static constexpr int kWheelCount = 6;
+    void SpinWheel(int target_index);
+    bool IsSpinningWheel() const { return wheel_active_; }
+    const char* WheelCategory(int index) const;
     // Called from the audio output task with the level (0..1) of the PCM chunk
     // that is being pushed to the speaker right now.
     void FeedAudioLevel(float level);
@@ -49,6 +56,22 @@ private:
     lv_obj_t* right_brow_ = nullptr;
     lv_obj_t* mouth_ = nullptr;
     lv_obj_t* zzz_label_ = nullptr;
+
+    // Trivia carki
+    lv_obj_t* wheel_top_ = nullptr;
+    lv_obj_t* wheel_mid_ = nullptr;
+    lv_obj_t* wheel_bot_ = nullptr;
+    lv_obj_t* wheel_frame_ = nullptr;
+    bool wheel_active_ = false;
+    bool wheel_settled_ = false;
+    int wheel_index_ = 0;       // su an ortada gorunen kategori
+    int wheel_target_ = 0;      // duracagi kategori
+    int wheel_flips_left_ = 0;  // kalan gecis sayisi
+    uint32_t wheel_next_flip_ms_ = 0;
+    uint32_t wheel_interval_ms_ = 60;   // gecis araligi (artar = yavaslar)
+    uint32_t wheel_done_ms_ = 0;        // durus animasyonu bitis zamani
+    void ShowFaceParts(bool show);
+    void UpdateWheel();
 
     FaceState state_ = FaceState::Idle;
     FaceEmotion emotion_ = FaceEmotion::Neutral;
