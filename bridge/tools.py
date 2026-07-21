@@ -880,6 +880,92 @@ def set_music_volume(level: int) -> str:
         return f"Ses ayarlanamadi: {exc}. Spotify acik olmali."
 
 
+# --- Sarki tahmin oyunu ---
+_QUIZ_SEEDS = ["turkce pop", "turkce rock", "90lar turkce hit", "turkce rap",
+               "turkce slow", "2000ler turkce", "pop hits", "rock classics"]
+
+
+@mcp.tool()
+def song_quiz(tur: str = "") -> str:
+    """Sarki tahmin oyunu baslatir: rastgele bir sarkinin ortasindan bir parca
+    calar, kullanici hangi sarki/sanatci oldugunu tahmin eder. Song guessing game.
+    Kullanici 'sarki tahmin oyunu', 'melodi oyunu', 'bil bakalim hangi sarki'
+    dediginde cagir. tur: opsiyonel tarz (turkce pop, rock, rap...).
+    ONEMLI: Donen gizli cevabi kullaniciya SOYLEME; o tahmin edene kadar sakla."""
+    import os
+    import time
+    sp = _spotify_client()
+    if sp is None:
+        return "Sarki oyunu icin Spotify kurulumu gerekli (spotify_setup.py)."
+    seed = tur.strip() or random.choice(_QUIZ_SEEDS)
+    try:
+        res = sp.search(q=seed, type="track", limit=50, market="TR")
+        tracks = res.get("tracks", {}).get("items", [])
+        if not tracks:
+            return "Uygun sarki bulunamadi, baska bir tarz dene."
+        tr = random.choice(tracks)
+        devices = sp.devices().get("devices", [])
+        if not devices:
+            os.startfile("spotify:")
+            for _ in range(15):
+                time.sleep(1)
+                devices = sp.devices().get("devices", [])
+                if devices:
+                    break
+            if not devices:
+                return "Once Spotify'i ac, sonra tekrar dene."
+        dur = tr.get("duration_ms", 200000)
+        pos = random.randint(int(dur * 0.2), int(dur * 0.55))
+        sp.start_playback(device_id=devices[0]["id"], uris=[tr["uri"]],
+                          position_ms=pos)
+
+        def _stop():
+            try:
+                sp.pause_playback()
+            except Exception:
+                pass
+        threading.Timer(12.0, _stop).start()
+        ans = f"{tr['artists'][0]['name']} - {tr['name']}"
+        return (f"[GIZLI CEVAP - kullaniciya soyleme: {ans}] Bir sarki caldim, "
+                f"12 saniye calacak sonra duracak. Kullaniciya heyecanla 'bu "
+                f"hangi sarki, kim soyluyor?' diye sor. Tahminini bekle; dogru "
+                f"bilirse kutla, bilemezse once ipucu ver (sanatci ya da yil), "
+                f"yine bilemezse cevabi acikla.")
+    except Exception as exc:
+        return f"Oyun baslatilamadi: {exc}. Spotify acik mi kontrol et."
+
+
+# --- Skorlu quiz ---
+_quiz_lock = threading.Lock()
+_quiz_state = {"dogru": 0, "toplam": 0}
+
+
+@mcp.tool()
+def quiz_baslat() -> str:
+    """Skorlu bir bilgi yarismasi baslatir ve skoru sifirlar. Starts a scored quiz.
+    Kullanici 'quiz baslat', 'bilgi yarismasi', 'bana sorular sor' dediginde cagir.
+    Sonra sen (Iva) sorulari uretir, her cevaptan sonra quiz_puan'i cagirirsin."""
+    with _quiz_lock:
+        _quiz_state["dogru"] = 0
+        _quiz_state["toplam"] = 0
+    return ("Quiz basladi, skor sifir. Simdi ilk soruyu sor. Her sorudan sonra "
+            "kullanicinin cevabini degerlendir ve quiz_puan aracini cagir.")
+
+
+@mcp.tool()
+def quiz_puan(dogru_mu: bool) -> str:
+    """Quiz'de son cevabin dogru olup olmadigini kaydeder ve guncel skoru doner.
+    Records the last answer and returns the score. Her sorudan sonra cagir;
+    dogru_mu: kullanicinin cevabi dogruysa true, yanlissa false."""
+    with _quiz_lock:
+        _quiz_state["toplam"] += 1
+        if dogru_mu:
+            _quiz_state["dogru"] += 1
+        d, t = _quiz_state["dogru"], _quiz_state["toplam"]
+    sonuc = "Dogru!" if dogru_mu else "Yanlis."
+    return f"{sonuc} Skor: {d}/{t}."
+
+
 @mcp.tool()
 def now_playing() -> str:
     """Su an Spotify'da ne caldigini soyler. What's playing on Spotify.
