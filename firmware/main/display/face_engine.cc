@@ -653,13 +653,20 @@ void FaceEngine::Update() {
         return;
     }
 
-    // Bekleyen duygu: sabitlendiyse uygula (gecici sinyaller boylece elenir)
-    if (has_pending_emotion_ &&
-        (lv_tick_get() - pending_emotion_ms_) >= kEmotionSettleMs) {
-        has_pending_emotion_ = false;
-        emotion_ = pending_emotion_;
-        emotion_until_ms_ = lv_tick_get() +
-                            (pending_emotion_ == FaceEmotion::Neutral ? 0 : 12000);
+    // Bekleyen duygu: sabitlendiyse uygula (gecici sinyaller boylece elenir).
+    // Olumsuz ifadeler (uzgun/kizgin/aglayan) yanlislikla cok tetikleniyordu;
+    // onlar icin cok daha uzun esik koyuyoruz ki sadece gercekten uzun ve
+    // uzucu bir cevapta cikinlar. Kisa cevaplarda hic gorunmezler.
+    if (has_pending_emotion_) {
+        bool negatif = (pending_emotion_ == FaceEmotion::Sad ||
+                        pending_emotion_ == FaceEmotion::Angry);
+        uint32_t settle = negatif ? 4500 : kEmotionSettleMs;
+        if ((lv_tick_get() - pending_emotion_ms_) >= settle) {
+            has_pending_emotion_ = false;
+            emotion_ = pending_emotion_;
+            emotion_until_ms_ = lv_tick_get() +
+                (pending_emotion_ == FaceEmotion::Neutral ? 0 : 12000);
+        }
     }
 
     // Bekleyen uyku: once veda cumlesinin bitmesini bekle, sonra gozleri kapat
