@@ -244,9 +244,14 @@ Kategoriler: **notlar**, **görevler & odak (Pomodoro)**, **kalıcı hatırlatı
 
 | Oyun | Nasıl | Araç |
 |---|---|---|
+| 🎡 Trivia Crack | "Trivia oynayalım" — OLED'de çark döner (Bilim/Sanat/Spor/Tarih/Coğrafya/Eğlence), çıkan kategoriden 4 şıklı soru | `self.trivia_wheel`, `quiz_puan` |
+| 🃏 3 Bilgi (Doğru mu Yanlış mı) | Çark döner, çıkan kategoriden İva 3 bilgi verir (biri uydurma), sen yanlışı bulursun | `self.trivia_wheel`, `quiz_puan` |
 | 🎵 Şarkı tahmin | "şarkı tahmin oyunu" — Spotify'dan bir şarkının ortasından 12 sn çalar, sen tahmin edersin, İva cevabı gizli tutar | `song_quiz` |
 | Skorlu quiz | "bana quiz yap" — İva soru sorar, doğru/yanlış sayını tutar, "5'te 4 yaptın!" der | `quiz_baslat`, `quiz_puan` |
 
+> Trivia Crack ve 3 Bilgi oyunlarında OLED'de fiziksel **çark animasyonu** döner
+> (slot makinesi gibi kategoriler kayıp bir kategoride durur), sonra normal yüze döner.
+> Çark firmware'dedir (`self.trivia_wheel`); soru/bilgi üretimi İva'nın kendi zekâsıdır.
 > Şarkı tahmin oyunu Spotify kurulumu gerektirir (bkz. [bridge/README](bridge/README.md)).
 > Sözel oyunlar için sadece rol tanımına (prompt) oyun bölümünü eklemek yeterli.
 
@@ -327,7 +332,7 @@ adresi `.env`'e yapıştırıp köprüyü yeniden başlat.
 - [x] 30 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
 - [x] PC kontrolü: tarayıcı, uygulama açma, web arama
 - [x] Müzik: Spotify çal/durdur/ses kontrolü (Premium), YouTube
-- [x] Oyunlar: bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz
+- [x] Oyunlar: Trivia Crack (OLED çark animasyonu), 3 Bilgi, bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz
 - [x] Kalıcı hatırlatıcılar + otomatik yedekleme
 - [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
 - [x] Windows açılışında otomatik başlatma + tek komutluk kurulum
