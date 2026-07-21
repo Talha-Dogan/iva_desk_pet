@@ -775,12 +775,28 @@ def play_spotify(query: str) -> str:
             tr = items[0]
             name = f"{tr['artists'][0]['name']} - {tr['name']}"
             devices = sp.devices().get("devices", [])
+            # Spotify kapaliysa ac ve cihaz olarak gorunmesini bekle
             if not devices:
+                import time
                 os.startfile("spotify:")
-                return (f"'{name}' hazir ama once Spotify'in acilmasi gerek. "
-                        f"Actim, birkac saniye sonra tekrar 'cal' de.")
-            sp.start_playback(device_id=devices[0]["id"], uris=[tr["uri"]])
-            return f"Spotify'da caliyor: {name}"
+                for _ in range(15):
+                    time.sleep(1)
+                    devices = sp.devices().get("devices", [])
+                    if devices:
+                        break
+                if not devices:
+                    return (f"Spotify'i actim ama hazir olmadi. Birkac saniye "
+                            f"sonra '{name} cal' de.")
+            # Yeni acilan uygulama ilk komutu reddedebilir; kisa bir retry
+            dev_id = devices[0]["id"]
+            for attempt in range(3):
+                try:
+                    sp.start_playback(device_id=dev_id, uris=[tr["uri"]])
+                    return f"Spotify'da caliyor: {name}"
+                except Exception:
+                    import time
+                    time.sleep(1.5)
+            return f"'{name}' bulundu ama Spotify calmaya baslamadi, tekrar dene."
         except Exception as exc:
             return f"Spotify calma hatasi: {exc}. Spotify acik mi kontrol et."
 
