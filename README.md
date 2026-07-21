@@ -52,7 +52,9 @@ Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
 | 📊 | **Proje hafızası** | Projelerinin durumunu hatırlar, sorar |
 | 🌤️ | **Hava durumu** | 12 Türk şehri, API anahtarı gerektirmez |
 | 🖥️ | **Ekran geçişi** | "durum ekranını göster" / "yüzünü göster" |
-| 💻 | **PC kontrolü** | "Google aç", "YouTube'da X şarkısını aç", "internette ... ara" |
+| 💻 | **PC kontrolü** | "Google aç", "uygulama aç", "internette ... ara" |
+| 🎵 | **Müzik** | Spotify'da şarkı çalar, durdurur, ses ayarlar; kapalıysa Spotify'ı açar |
+| 🎮 | **Oyunlar** | Bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz |
 
 <!-- ============================================================= -->
 <!--  GORSEL: 3-4'lu kare gif kolajı önerilir:                              -->
@@ -221,6 +223,35 @@ Kategoriler: **notlar**, **görevler & odak (Pomodoro)**, **kalıcı hatırlatı
 
 ---
 
+## 🎮 Oyunlar
+
+İva'yla sesle oynanabilecek oyunlar — hepsi Türkçe, ekranda metin yok (sadece ses + yüz).
+
+**Sözel oyunlar** (İva'nın kendi zekâsıyla — ekstra kurulum gerekmez, prompt'la gelir):
+
+| Oyun | Nasıl |
+|---|---|
+| Bilmece | "bana bilmece sor" — İva sorar, sen bulursun |
+| 20 Soru | "20 soru oynayalım" — sen bir şey tut, İva evet-hayır sorularıyla bulur |
+| Taboo | "taboo oynayalım" — İva kelimeyi yasaklı kelimeler kullanmadan anlatır |
+| Kelime çağrışımı | Sırayla ilişkili kelimeler söylersiniz |
+| Şehir-İsim-Hayvan | Harf verilir, kategorilere göre bulma |
+| Ya o ya bu | İva ikilemler sorar ("uçmak mı görünmezlik mi?") |
+| Doğru mu Yanlış mı | İva iddialar söyler, sen tahmin edersin |
+| Hikâye tamamlama | Sırayla cümle ekleyerek birlikte hikâye kurarsınız |
+
+**Araçlı oyunlar** (sisteme özgü):
+
+| Oyun | Nasıl | Araç |
+|---|---|---|
+| 🎵 Şarkı tahmin | "şarkı tahmin oyunu" — Spotify'dan bir şarkının ortasından 12 sn çalar, sen tahmin edersin, İva cevabı gizli tutar | `song_quiz` |
+| Skorlu quiz | "bana quiz yap" — İva soru sorar, doğru/yanlış sayını tutar, "5'te 4 yaptın!" der | `quiz_baslat`, `quiz_puan` |
+
+> Şarkı tahmin oyunu Spotify kurulumu gerektirir (bkz. [bridge/README](bridge/README.md)).
+> Sözel oyunlar için sadece rol tanımına (prompt) oyun bölümünü eklemek yeterli.
+
+---
+
 ## 🗣️ Sesli komut sözlüğü
 
 Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köprü açıkken):
@@ -239,9 +270,11 @@ Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köp
 | "bugün yorgunum" | Modunu kaydeder |
 | "İstanbul'da hava nasıl?" | Hava durumu |
 | "durum ekranını göster" | Bilgi ekranına geçer |
-| "Google aç" / "YouTube aç" | PC'de tarayıcıda siteyi açar |
-| "Tarkan Kuzu Kuzu'yu aç" | YouTube'da bulup çalar |
-| "internette ... ara" | PC'de Google araması açar |
+| "Sezen Aksu çal" | Spotify'da direkt çalar |
+| "durdur" / "sonraki şarkı" / "sesi kıs" | Müzik kontrolü |
+| "Google aç" / "hesap makinesi aç" | Site / uygulama açar |
+| "internette ... ara" | Google araması açar |
+| "bana bilmece sor" / "şarkı tahmin oyunu" | Oyun başlatır |
 
 ---
 
@@ -292,12 +325,14 @@ adresi `.env`'e yapıştırıp köprüyü yeniden başlat.
 - [x] Gerçek dudak senkronu, düşük güç ekran çizimi
 - [x] Sözünü kesme (barge-in)
 - [x] 30 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
-- [x] PC kontrolü: tarayıcı açma, YouTube'da şarkı çalma, web arama
+- [x] PC kontrolü: tarayıcı, uygulama açma, web arama
+- [x] Müzik: Spotify çal/durdur/ses kontrolü (Premium), YouTube
+- [x] Oyunlar: bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz
 - [x] Kalıcı hatırlatıcılar + otomatik yedekleme
 - [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
 - [x] Windows açılışında otomatik başlatma + tek komutluk kurulum
 - [ ] Ders/toplantı kayıt ve özet modu
-- [ ] Sesli oyunlar (bilmece, 20 soru)
+- [ ] Çalma listesi ("favorilerimi çal")
 - [ ] Home Assistant ile akıllı ev kontrolü
 - [ ] Kendi müzik arşivi (kendi sunucuda)
 - [ ] 3D baskı kasa + 16MB karta geçiş
