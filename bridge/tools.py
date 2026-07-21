@@ -735,6 +735,26 @@ _KNOWN_APPS = {
 
 
 @mcp.tool()
+def play_spotify(query: str) -> str:
+    """Spotify'da bir sarki/sanatci aratir ve Spotify uygulamasinda acar.
+    Searches Spotify for a song. Kullanici 'spotify'da X ac/cal', 'spotify'dan
+    X dinle' dediginde cagir. query: sarki veya sanatci adi.
+    Not: arama sonucunu acar; calmak icin ilk sarkiya dokunulur."""
+    import os
+    try:
+        # Spotify uygulamasinda arama sayfasini acar (kurulumsuz calisir)
+        os.startfile("spotify:search:" + urllib.parse.quote(query))
+        return (f"Spotify'da '{query}' aramasini actim. Ilk sarkiya dokununca "
+                f"calmaya baslar.")
+    except Exception:
+        # Spotify kurulu degilse web player'da ac
+        import webbrowser
+        webbrowser.open("https://open.spotify.com/search/" +
+                        urllib.parse.quote(query))
+        return f"Spotify web'de '{query}' aramasini actim."
+
+
+@mcp.tool()
 def open_app(app: str) -> str:
     """Bilgisayarda bir uygulama acar. Opens a known desktop application.
     Kullanici 'X uygulamasini ac', 'not defteri ac', 'hesap makinesi ac',
