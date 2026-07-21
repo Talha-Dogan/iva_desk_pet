@@ -225,19 +225,9 @@ private:
                 int target = esp_random() % FaceEngine::kWheelCount;
                 std::string category = face->WheelCategory(target);
                 face->SpinWheel(target);
-
-                // Cark donerken tik sesleri + durusta ding (yavaslayan ritim)
-                auto& app = Application::GetInstance();
-                int interval = 45;
-                for (int i = 0; i < 24; i++) {
-                    app.PlaySound(Lang::Sounds::OGG_POPUP);
-                    vTaskDelay(pdMS_TO_TICKS(interval));
-                    if (i > 15) interval += 35;
-                    else if (i > 8) interval += 12;
-                }
-                vTaskDelay(pdMS_TO_TICKS(200));
-                app.PlaySound(Lang::Sounds::OGG_SUCCESS);
-                vTaskDelay(pdMS_TO_TICKS(1000));  // secili kategoriyi goster
+                // Tek kisa "cark basladi" sesi; animasyon arka planda kendi
+                // doner (araci BLOKLAMIYORUZ ki MCP zaman asimina ugramasin).
+                Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
                 return std::string("Cikan kategori: ") + category;
             });
     }
