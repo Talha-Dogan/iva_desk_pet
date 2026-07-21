@@ -81,7 +81,18 @@ Araçların çalışması için ilgili pencerenin açık kalması gerekir.
 | `web_search` | "internette ... ara" — Google araması açar |
 
 PC kontrol araçları `webbrowser.open` kullanır — sadece sayfa açar, komut çalıştırmaz.
-`play_youtube` için `yt-dlp` gerekir (requirements.txt'te).
+`play_youtube` için `yt-dlp`, `open_app` için güvenli bir uygulama listesi kullanılır.
+
+**Spotify tam otomatik çalma** (opsiyonel, Premium gerekir): `play_spotify` varsayılan
+olarak Spotify'da aramayı açar. `.env`'e `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`
+girip bir kez `python spotify_setup.py` çalıştırırsan, İva şarkıyı **aktif Spotify
+cihazında doğrudan çalar** ("Spotify'da X çal"). Anahtarlar: developer.spotify.com/dashboard
+→ Create App, Redirect URI `http://127.0.0.1:8888/callback`. Çalma anında Spotify uygulaması
+bir cihazda açık olmalıdır.
+
+**PC uygulama açma** (`open_app`): not defteri, hesap makinesi, dosya gezgini, ayarlar,
+terminal, Spotify, VS Code, Discord, kamera, takvim gibi bilinen uygulamaları açar —
+liste `_KNOWN_APPS` içinde; yenisini eklemek kolaydır. Sadece listedekiler açılır.
 
 Her akşam `DIGEST_HOUR` saatinde günün notları + bekleyen görevler + günlük sorusu
 otomatik olarak Telegram'a gönderilir. Veriler günde bir `data/backups/` altına

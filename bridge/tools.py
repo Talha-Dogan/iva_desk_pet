@@ -734,20 +734,62 @@ _KNOWN_APPS = {
 }
 
 
+SPOTIFY_CACHE = os.path.join(DATA_DIR, ".spotify_cache")
+SPOTIFY_REDIRECT = "http://127.0.0.1:8888/callback"
+SPOTIFY_SCOPE = "user-modify-playback-state user-read-playback-state"
+
+
+def _spotify_client():
+    """Premium + API anahtarlari ayarliysa gercek calma icin istemci dondurur;
+    yoksa None (o zaman arama-acma moduna dusulur)."""
+    cid = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
+    secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
+    if not cid or not secret or not os.path.exists(SPOTIFY_CACHE):
+        return None
+    try:
+        import spotipy
+        from spotipy.oauth2 import SpotifyOAuth
+        auth = SpotifyOAuth(client_id=cid, client_secret=secret,
+                            redirect_uri=SPOTIFY_REDIRECT, scope=SPOTIFY_SCOPE,
+                            cache_path=SPOTIFY_CACHE, open_browser=False)
+        return spotipy.Spotify(auth_manager=auth)
+    except Exception:
+        return None
+
+
 @mcp.tool()
 def play_spotify(query: str) -> str:
-    """Spotify'da bir sarki/sanatci aratir ve Spotify uygulamasinda acar.
-    Searches Spotify for a song. Kullanici 'spotify'da X ac/cal', 'spotify'dan
-    X dinle' dediginde cagir. query: sarki veya sanatci adi.
-    Not: arama sonucunu acar; calmak icin ilk sarkiya dokunulur."""
+    """Spotify'da bir sarkiyi bulup calar. Plays a song on Spotify.
+    Kullanici 'spotify'da X cal/ac', 'spotify'dan X dinle' dediginde cagir.
+    query: sarki veya sanatci adi. Premium + kurulum varsa dogrudan calar."""
     import os
+    sp = _spotify_client()
+
+    # Tam otomatik mod (Premium + API kurulu): ara ve aktif cihazda cal
+    if sp is not None:
+        try:
+            res = sp.search(q=query, type="track", limit=1)
+            items = res.get("tracks", {}).get("items", [])
+            if not items:
+                return f"Spotify'da '{query}' bulunamadi."
+            tr = items[0]
+            name = f"{tr['artists'][0]['name']} - {tr['name']}"
+            devices = sp.devices().get("devices", [])
+            if not devices:
+                os.startfile("spotify:")
+                return (f"'{name}' hazir ama once Spotify'in acilmasi gerek. "
+                        f"Actim, birkac saniye sonra tekrar 'cal' de.")
+            sp.start_playback(device_id=devices[0]["id"], uris=[tr["uri"]])
+            return f"Spotify'da caliyor: {name}"
+        except Exception as exc:
+            return f"Spotify calma hatasi: {exc}. Spotify acik mi kontrol et."
+
+    # Basit mod (kurulum yok): arama sayfasini ac
     try:
-        # Spotify uygulamasinda arama sayfasini acar (kurulumsuz calisir)
         os.startfile("spotify:search:" + urllib.parse.quote(query))
         return (f"Spotify'da '{query}' aramasini actim. Ilk sarkiya dokununca "
                 f"calmaya baslar.")
     except Exception:
-        # Spotify kurulu degilse web player'da ac
         import webbrowser
         webbrowser.open("https://open.spotify.com/search/" +
                         urllib.parse.quote(query))
