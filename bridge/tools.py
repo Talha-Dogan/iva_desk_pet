@@ -690,9 +690,10 @@ def web_search(query: str) -> str:
 
 @mcp.tool()
 def play_youtube(query: str) -> str:
-    """YouTube'da arayip ilk videoyu bilgisayarda acar (muzik/video icin).
-    Plays the first YouTube result. Kullanici 'X sarkisini ac', 'youtube'da X ac',
-    'X muzigini cal' dediginde cagir. query: sarki/video adi."""
+    """YouTube'da video/klip acar. SADECE kullanici acikca 'youtube' derse
+    ('youtube'da X ac') ya da bir video/klip/izlemelik isterse kullan. Genel
+    muzik ve sarki istekleri icin bu DEGIL, play_spotify tercih edilir.
+    query: video adi."""
     import webbrowser
     # yt-dlp kutuphanesi varsa ilk videoyu bulup direkt ac (otomatik oynar)
     try:
@@ -759,9 +760,12 @@ def _spotify_client():
 
 @mcp.tool()
 def play_spotify(query: str) -> str:
-    """Spotify'da bir sarkiyi bulup calar. Plays a song on Spotify.
-    Kullanici 'spotify'da X cal/ac', 'spotify'dan X dinle' dediginde cagir.
-    query: sarki veya sanatci adi. Premium + kurulum varsa dogrudan calar."""
+    """Spotify'da bir sarkiyi bulup calar - MUZIK ICIN VARSAYILAN ARAC.
+    Plays a song on Spotify. Kullanici muzik/sarki isteyen HER seyde ONCELIKLE
+    bunu kullan: 'X cal', 'sarki cal', 'muzik ac', 'X dinle', 'bana X'ten bir
+    sey ac', 'spotify'da X'. Sadece kullanici acikca YouTube isterse play_youtube
+    kullanilir. query: sarki veya sanatci adi. Premium ile dogrudan calar,
+    Spotify kapaliysa acar."""
     import os
     sp = _spotify_client()
 
