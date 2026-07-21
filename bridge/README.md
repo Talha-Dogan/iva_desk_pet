@@ -72,6 +72,17 @@ Araçların çalışması için ilgili pencerenin açık kalması gerekir.
 | `get_weather` | "İstanbul'da hava nasıl?" (12 Türk şehri, anahtarsız) |
 | `calculator`, `get_datetime`, `roll_dice`, `disk_status` | "127 çarpı 43", "saat kaç", "zar at" |
 
+**PC kontrolü**
+
+| Araç | Örnek komut |
+|---|---|
+| `open_website` | "Google aç", "YouTube aç" (bilinen ~15 site + URL) |
+| `play_youtube` | "Tarkan Kuzu Kuzu'yu aç" — yt-dlp ile ilk videoyu bulur, açar, çalar |
+| `web_search` | "internette ... ara" — Google araması açar |
+
+PC kontrol araçları `webbrowser.open` kullanır — sadece sayfa açar, komut çalıştırmaz.
+`play_youtube` için `yt-dlp` gerekir (requirements.txt'te).
+
 Her akşam `DIGEST_HOUR` saatinde günün notları + bekleyen görevler + günlük sorusu
 otomatik olarak Telegram'a gönderilir. Veriler günde bir `data/backups/` altına
 zip'lenir (son 7 yedek tutulur).

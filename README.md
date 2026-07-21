@@ -52,6 +52,7 @@ Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
 | 📊 | **Proje hafızası** | Projelerinin durumunu hatırlar, sorar |
 | 🌤️ | **Hava durumu** | 12 Türk şehri, API anahtarı gerektirmez |
 | 🖥️ | **Ekran geçişi** | "durum ekranını göster" / "yüzünü göster" |
+| 💻 | **PC kontrolü** | "Google aç", "YouTube'da X şarkısını aç", "internette ... ara" |
 
 <!-- ============================================================= -->
 <!--  GORSEL: 3-4'lu kare gif kolajı önerilir:                              -->
@@ -238,6 +239,34 @@ Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köp
 | "bugün yorgunum" | Modunu kaydeder |
 | "İstanbul'da hava nasıl?" | Hava durumu |
 | "durum ekranını göster" | Bilgi ekranına geçer |
+| "Google aç" / "YouTube aç" | PC'de tarayıcıda siteyi açar |
+| "Tarkan Kuzu Kuzu'yu aç" | YouTube'da bulup çalar |
+| "internette ... ara" | PC'de Google araması açar |
+
+---
+
+## 💻 PC kontrolü
+
+İva, senin bilgisayarınla etkileşime girebilir — tarayıcı açar, YouTube'da şarkı bulup çalar,
+web araması yapar. Bunun için ekstra bir kurulum gerekmez; araçlar zaten köprüde (`bridge/`) çalışır.
+
+| Söyle | Ne olur |
+|---|---|
+| "Google aç", "YouTube aç", "Spotify aç", "Gmail aç" | Site PC'de açılır (bilinen ~15 site hazır) |
+| "... şarkısını aç", "YouTube'da ... aç" | yt-dlp ile ilk video bulunur, açılır ve **çalmaya başlar** |
+| "internette ... ara", "Google'da ... ara" | Google araması açılır |
+
+**Nasıl çalışır?** Cihaz komutu anlamaz — "YouTube aç" isteği sunucudan senin PC'ndeki köprüye
+gider, köprü tarayıcıyı açar. Yani ESP32'ye kod yüklemeye gerek yok; yeni PC yeteneği eklemek
+sadece köprüdeki `tools.py`'yi değiştirmektir.
+
+> **Güvenlik:** Bu araçlar yalnızca web sayfası açar — komut çalıştırmaz, dosya silmez.
+> İva'nın PC erişimi sınırlı ve güvenli bir çerçevededir.
+
+**Not:** Yeni araç eklendiğinde cihaz bir kez yeniden başlatılmalı (güncel araç listesini
+oturum başında alır). Konsolda MCP Endpoint durumu "Connected" olmalı; "Not Connected" ise
+`.env`'deki endpoint token'ı eskimiş olabilir (xiaozhi bunları yeniler) — konsoldaki güncel
+adresi `.env`'e yapıştırıp köprüyü yeniden başlat.
 
 ---
 
@@ -262,7 +291,8 @@ Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köp
 - [x] Duygulara tepki veren animasyonlu yüz
 - [x] Gerçek dudak senkronu, düşük güç ekran çizimi
 - [x] Sözünü kesme (barge-in)
-- [x] 27 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
+- [x] 30 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
+- [x] PC kontrolü: tarayıcı açma, YouTube'da şarkı çalma, web arama
 - [x] Kalıcı hatırlatıcılar + otomatik yedekleme
 - [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
 - [x] Windows açılışında otomatik başlatma + tek komutluk kurulum

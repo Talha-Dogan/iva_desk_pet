@@ -48,7 +48,11 @@
  * hoparlorden "pat / biz biz" sesi cikariyor. Kanali surekli acik tutunca
  * (dijital sessizlik akmaya devam eder) bu gecis sesi tamamen kayboluyor.
  * Bedeli: birkac mA ek tuketim. Pil ile calisilacaksa 0 yapilabilir. */
-#define AUDIO_KEEP_OUTPUT_ENABLED 1
+/* 1 iken hoparlor kanali hic kapanmiyordu; ama sunucu/ses yokken (idle) bu
+ * bosta kalan kanal amfiden surekli "biz biz" gurultusu cikariyor. Asil "biz
+ * biz"in donanimsal oldugunu olcumle gordugumuz icin (PCM'de artik yok) bu
+ * ayara gerek kalmadi. 0 = kanal idle'da kapanir, bosta gurultu olmaz. */
+#define AUDIO_KEEP_OUTPUT_ENABLED 0
 
 #define AUDIO_POWER_TIMEOUT_MS 15000
 #define AUDIO_POWER_CHECK_INTERVAL_MS 1000
@@ -161,6 +165,10 @@ private:
     int decoder_sample_rate_ = 0;
     int decoder_duration_ms_ = OPUS_FRAME_DURATION_MS;
     int decoder_frame_size_ = 0;
+    /* Konusma basinda yeniden ornekleyiciden kalan kisa "biz" artigini
+     * susturmak icin: ResetDecoder bu sayaci kurar, cikis gorevi ilk bu kadar
+     * ornegi sifirlar (ses de agiz da sessiz kalir). */
+    int output_mute_samples_ = 0;
     DebugStatistics debug_statistics_;
     srmodel_list_t* models_list_ = nullptr;
 

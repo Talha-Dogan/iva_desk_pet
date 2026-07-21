@@ -627,6 +627,92 @@ def get_weather(city: str = "istanbul") -> str:
         return f"Hava durumuna ulasamadim: {exc}"
 
 
+# ---------------------------------------------------------------- PC kontrolu
+#
+# Iva'nin bilgisayarla etkilesime gecmesi: tarayici acma, web/YouTube arama.
+# webbrowser modulu varsayilan tarayicida acar; komut CALISTIRMAZ (guvenli).
+
+_KNOWN_SITES = {
+    "google": "https://www.google.com",
+    "youtube": "https://www.youtube.com",
+    "youtube müzik": "https://music.youtube.com",
+    "youtube muzik": "https://music.youtube.com",
+    "gmail": "https://mail.google.com",
+    "github": "https://github.com",
+    "chatgpt": "https://chat.openai.com",
+    "netflix": "https://www.netflix.com",
+    "spotify": "https://open.spotify.com",
+    "twitter": "https://twitter.com",
+    "x": "https://x.com",
+    "instagram": "https://www.instagram.com",
+    "whatsapp": "https://web.whatsapp.com",
+    "hava": "https://www.google.com/search?q=hava+durumu",
+    "harita": "https://www.google.com/maps",
+    "haritalar": "https://www.google.com/maps",
+    "haberler": "https://news.google.com",
+    "translate": "https://translate.google.com",
+    "ceviri": "https://translate.google.com",
+}
+
+
+@mcp.tool()
+def open_website(site: str) -> str:
+    """Bilgisayarda tarayicida bir web sitesi acar. Opens a website in the PC browser.
+    Kullanici 'X sitesini ac', 'google ac', 'youtube ac' dediginde cagir.
+    site: bilinen bir isim (google, youtube, gmail...) ya da tam adres olabilir."""
+    import webbrowser
+    key = site.strip().lower()
+    if key in _KNOWN_SITES:
+        url = _KNOWN_SITES[key]
+        label = site.strip()
+    elif key.startswith("http://") or key.startswith("https://"):
+        url = site.strip()
+        label = url
+    elif "." in key and " " not in key:
+        url = "https://" + key
+        label = key
+    else:
+        # Bilinmeyen isim -> Google'da aratip actiralim
+        return web_search(site)
+    webbrowser.open(url)
+    return f"{label} tarayicida acildi."
+
+
+@mcp.tool()
+def web_search(query: str) -> str:
+    """Bilgisayarda tarayicida Google aramasi acar. Opens a Google search in the browser.
+    Kullanici 'sunu ara', 'google'da ara', 'internette ara' dediginde cagir."""
+    import webbrowser
+    url = "https://www.google.com/search?q=" + urllib.parse.quote(query)
+    webbrowser.open(url)
+    return f"'{query}' icin arama actim."
+
+
+@mcp.tool()
+def play_youtube(query: str) -> str:
+    """YouTube'da arayip ilk videoyu bilgisayarda acar (muzik/video icin).
+    Plays the first YouTube result. Kullanici 'X sarkisini ac', 'youtube'da X ac',
+    'X muzigini cal' dediginde cagir. query: sarki/video adi."""
+    import webbrowser
+    # yt-dlp kutuphanesi varsa ilk videoyu bulup direkt ac (otomatik oynar)
+    try:
+        import yt_dlp
+        opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+        entries = info.get("entries") if isinstance(info, dict) else None
+        vid = entries[0].get("id") if entries else None
+        if vid:
+            webbrowser.open(f"https://www.youtube.com/watch?v={vid}")
+            return f"'{query}' YouTube'da aciliyor, birazdan calmaya baslar."
+    except Exception:
+        pass
+    # Fallback: arama sonuclarini ac
+    url = "https://www.youtube.com/results?search_query=" + urllib.parse.quote(query)
+    webbrowser.open(url)
+    return f"'{query}' icin YouTube aramasi actim, oynatmak icin ilk videoya dokun."
+
+
 # ---------------------------------------------------------------- daily digest
 
 def _digest_loop():

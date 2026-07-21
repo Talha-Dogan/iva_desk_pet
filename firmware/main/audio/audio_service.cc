@@ -2,6 +2,7 @@
 #include "display/face_engine.h"
 #include <esp_log.h>
 #include <cstring>
+#include <algorithm>
 
 #define RATE_CVT_CFG(_src_rate, _dest_rate, _channel)        \
     (esp_ae_rate_cvt_cfg_t)                                  \
@@ -310,6 +311,14 @@ void AudioService::AudioOutputTask() {
              * bilinen acilis sicramasi). */
             std::vector<int16_t> warmup(codec_->output_sample_rate() * 60 / 1000, 0);
             codec_->OutputData(warmup);
+        }
+
+        /* Konusma basindaki artigi sustur (bkz. ResetDecoder). Ornekleri
+         * atmiyoruz, sifirliyoruz ki DMA akisi ve zamanlama bozulmasin. */
+        if (output_mute_samples_ > 0) {
+            size_t n = std::min((size_t)output_mute_samples_, task->pcm.size());
+            std::fill(task->pcm.begin(), task->pcm.begin() + n, 0);
+            output_mute_samples_ -= n;
         }
 
         codec_->OutputData(task->pcm);
@@ -680,11 +689,24 @@ void AudioService::ResetDecoder() {
     if (opus_decoder_ != nullptr) {
         esp_opus_dec_reset(opus_decoder_);
     }
+    /* NOT: burada esp_ae_rate_cvt_reset() cagirmayi denedik (konusma basindaki
+     * kisa "biz" sesini gidermek icin). Sonuc: cikis tamamen bozuldu, sadece
+     * cizirti duyuldu. Anlasilan bu reset filtre gecmisinden fazlasini
+     * sifirliyor. Tekrar denenecekse resampler'i kapatip yeniden acmak
+     * (close + open) daha guvenli yol. */
     decoder_lock.unlock();
     timestamp_queue_.clear();
     audio_decode_queue_.clear();
     audio_playback_queue_.clear();
     audio_testing_queue_.clear();
+    /* Yeni konusmanin ilk ~120 ms'ini sustur: yeniden ornekleyicinin onceki
+     * konusmadan kalan artigi ("biz" sesi) bu pencerede cikiyor. TTS zaten
+     * cumleye kisa bir sessizlikle basladigi icin kelime kaybi olmaz. */
+    /* Olcum sonucu: gercek ses ~60 ms'de basliyor, oncesi cok kisik dijital
+     * artik. 60 ms sustur ki bu artik gitsin ama ilk hece kaybolmasin.
+     * (Kullanicinin duydugu asil "biz biz" donanimsal; PCM'de gorunmuyor.) */
+    int rate = codec_ ? codec_->output_sample_rate() : 24000;
+    output_mute_samples_ = rate * 60 / 1000;
     audio_queue_cv_.notify_all();
 }
 
