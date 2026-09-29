@@ -1,13 +1,16 @@
-**İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.**
+İva 
+
+İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.
 
 I started building İva because I wanted an AI assistant that felt less like another app and more like something that actually lived in the room with me.
 
 You talk to it. It listens, answers, changes its expression, takes notes, starts timers, controls music and can use tools running on your computer.
 
+İva is being developed with the help of AI tools as well. Claude has been part of the development process, especially while working through architecture decisions, firmware and backend problems, debugging, documentation, and new feature ideas. I still design, test and maintain the project myself, but Claude has become one of the tools I use while building it.
+
 It is still a prototype, and there is a lot I want to add.
 
-**→ See İva in action:** https://iva-web-concept.vercel.app/
-
+→ See İva in action: https://iva-web-concept.vercel.app/
 ---
 
 ## What is İva?
