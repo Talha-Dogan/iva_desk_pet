@@ -1,5 +1,3 @@
-# İva 🤖
-
 **İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.**
 
 I started building İva because I wanted an AI assistant that felt less like another app and more like something that actually lived in the room with me.
