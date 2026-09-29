@@ -1,358 +1,357 @@
-<!-- ============================================================= -->
-<!--  GORSEL: Buraya İva'nın ana fotoğrafı/gif'i (yüz ekranı açık, masada)  -->
-<!--  Yüklemek icin: docs/media/ klasorune koy, sonra asagidaki satiri ac:   -->
-<!--  <p align="center"><img src="docs/media/iva-hero.gif" width="480"></p>  -->
-<!-- ============================================================= -->
+# İva 🤖
 
-# İva — Konuşan Masa Robotu 🤖
+**İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.**
 
-> ESP32-S3 tabanlı, Türkçe konuşan, duygularını yüzüyle gösteren, not alıp Telegram'a yazan masaüstü yapay zekâ arkadaşı.
+I started building İva because I wanted an AI assistant that felt less like another app and more like something that actually lived in the room with me.
 
-İva; sesle uyanır, seninle Türkçe sohbet eder, konuşurken duygusuna göre yüz ifadesi değiştirir,
-sözünü kesip yeni komut verebilirsin, not tutar, hatırlatma kurar ve her akşam gününü Telegram'a özetler.
-[xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) projesi üzerine kurulmuş; kendi yüz motoru,
-Türkçe beyin ve kişisel asistan araçlarıyla genişletilmiştir.
+You talk to it. It listens, answers, changes its expression, takes notes, starts timers, controls music and can use tools running on your computer.
 
-<!-- Rozet satırı (istege bagli, suslu durur) -->
-`ESP32-S3` · `ESP-IDF 5.5` · `Türkçe` · `MCP` · `Python` · `Docker`
+It is still a prototype, and there is a lot I want to add.
+
+**→ See İva in action:** https://iva-web-concept.vercel.app/
 
 ---
 
-## 📑 İçindekiler
+## What is İva?
 
-- [Ne yapabiliyor?](#-ne-yapabiliyor)
-- [Nasıl çalışıyor? (mimari)](#-nasıl-çalışıyor-mimari)
-- [Hangi parça neye bağlı?](#-hangi-parça-neye-bağlı)
-- [Kurulum](#-kurulum)
-- [Donanım](#-donanım)
-- [Yüz motoru](#-yüz-motoru)
-- [İva'nın araçları](#-i̇vanın-araçları)
-- [Sesli komut sözlüğü](#-sesli-komut-sözlüğü)
-- [Klasör yapısı](#-klasör-yapısı)
-- [Yol haritası](#-yol-haritası)
-- [Lisans ve teşekkür](#-lisans-ve-teşekkür)
+İva is built around an ESP32-S3 with a microphone, speaker and small OLED screen.
 
----
+The ESP32 handles the physical side of the robot — wake word detection, audio, its face and device state.
 
-## ✨ Ne yapabiliyor?
+The heavier AI work can run on another computer or server.
 
-| | Özellik | Açıklama |
-|---|---|---|
-| 🎙️ | **Sesle uyanma** | "Jarvis" veya "Computer" — aynı anda iki kelime aktif |
-| ✋ | **Sözünü kesme (barge-in)** | İva uzun konuşurken uyandırma kelimesini duyunca durup seni dinler |
-| 🇹🇷 | **Türkçe konuşma** | Türkçe firmware + Türkçe ses (Edge TTS "Emel") |
-| 😊 | **Duygulu yüz** | 21 duygu → animasyonlu göz/kaş/ağız (mutlu, üzgün, kızgın, şaşkın, aşık...) |
-| 👄 | **Gerçek dudak senkronu** | Ağız, hoparlöre giden sesin şiddetine göre hareket eder |
-| 😴 | **Gerçek uyku** | "uyu" deyince veda edip gözlerini kapatır; uyandırma kelimesine kadar uyanmaz |
-| 📝 | **Not sistemi** | Sesli not, arama, günlük döküm |
-| 📨 | **Telegram** | Notları gönderir, her akşam otomatik gün özeti geçer |
-| ⏰ | **Kalıcı hatırlatıcılar** | "her gün 9'da ilaç hatırlat" — PC kapansa bile kaybolmaz |
-| 🍅 | **Pomodoro** | "25 dakika odaklanacağım" → süre bitince Telegram'dan haber |
-| 🧠 | **Mod & alışkanlık takibi** | "bugün yorgunum", "bugün spor yaptım" → seri tutar |
-| 📊 | **Proje hafızası** | Projelerinin durumunu hatırlar, sorar |
-| 🌤️ | **Hava durumu** | 12 Türk şehri, API anahtarı gerektirmez |
-| 🖥️ | **Ekran geçişi** | "durum ekranını göster" / "yüzünü göster" |
-| 💻 | **PC kontrolü** | "Google aç", "uygulama aç", "internette ... ara" |
-| 🎵 | **Müzik** | Spotify'da şarkı çalar, durdurur, ses ayarlar; kapalıysa Spotify'ı açar |
-| 🎮 | **Oyunlar** | Bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz |
-
-<!-- ============================================================= -->
-<!--  GORSEL: 3-4'lu kare gif kolajı önerilir:                              -->
-<!--    mutlu yüz | üzgün yüz | konuşurken ağız | uyku (zzz)                 -->
-<!--  docs/media/ altina koyup asagiyi ac:                                  -->
-<!--  | ![mutlu](docs/media/happy.gif) | ![üzgün](docs/media/sad.gif) |     -->
-<!--  |---|---|                                                              -->
-<!--  | ![konuşma](docs/media/talk.gif) | ![uyku](docs/media/sleep.gif) |   -->
-<!-- ============================================================= -->
-
----
-
-## 🔧 Nasıl çalışıyor? (mimari)
-
-İva üç parçadan oluşur ve her biri farklı yerde çalışır:
-
-```
-   ┌─────────────────┐      ses       ┌──────────────────┐    araç çağrısı   ┌────────────────┐
-   │   ESP32-S3      │ ─────────────► │     SUNUCU        │ ────────────────► │  İVA ARAÇLARI  │
-   │   (cihaz)       │                │  (bulut / yerel)  │                   │  (senin PC'n)  │
-   │                 │ ◄───────────── │                   │ ◄──────────────── │                │
-   └─────────────────┘   sesli yanıt  └──────────────────┘    araç sonucu     └────────────────┘
-    mikrofon · hoparlör                 ASR → LLM → TTS         MCP protokolü    not · Telegram
-    OLED yüz · uyandırma                 (konuşmayı anlar,                        mod · hatırlatıcı
-    kelimesi (offline)                   düşünür, seslendirir)                    hava · pomodoro
+```text
+You
+ ↓
+İva / ESP32-S3
+ ↓
+ASR → LLM → TTS
+ ↓
+MCP tools
+ ↓
+Your computer / services / devices
 ```
 
-**Adım adım bir konuşma:**
+That separation is intentional.
 
-1. **"Jarvis"** dersin → cihaz bunu **kendi içinde** (internetsiz) algılar, uyanır
-2. Konuşman ses olarak **sunucuya** gider
-3. Sunucu sırayla: sesi yazıya çevirir (**ASR**) → cevabı üretir (**LLM**) → yazıyı sese çevirir (**TTS**)
-4. Cevap sana **sesli** döner, yüz de duyguya göre değişir
-5. Cevap bir iş gerektiriyorsa ("not al") sunucu **İva Araçları'na** komut yollar (MCP)
+I don't want İva to be tied to one AI company or one model.
 
-> **Önemli:** Cihazda çalışan tek yapay zekâ parçası uyandırma kelimesidir. Geri kalan her şey
-> sunucudadır — bu yüzden cihaz internetsiz sohbet edemez.
-
-### İki sunucu seçeneği
-
-| | Resmî sunucu (xiaozhi.me) | Kendi sunucun (`server/`) |
-|---|---|---|
-| **Kurulum** | Kolay — hesap açman yeter | Docker + ücretsiz Groq anahtarı |
-| **Türkçe ses tanıma** | Sınırlı | Groq Whisper (çok iyi) |
-| **Ses (TTS)** | Konsoldan seçilir | Türkçe Edge TTS |
-| **Müzik** | Çince katalog | Kendi mp3'lerin |
-| **Gizlilik** | Bulutta işlenir | Tamamen yerel ağda |
-| **Bağımlılık** | İnternet | PC + Docker açık olmalı |
+The robot should be the interface.  
+The brain behind it should be replaceable.
 
 ---
 
-## 🧩 Hangi parça neye bağlı?
+## What can it do right now?
 
-Sistemin çalışması için **neyin açık olması gerektiği** — sorun çıkınca buraya bak:
+The current prototype can already:
 
-| Özellik | Çalışması için gereken |
+- wake up by voice
+- speak Turkish
+- be interrupted while speaking
+- show expressions on its OLED face
+- move its mouth based on the audio being played
+- take and search notes
+- create persistent reminders
+- manage simple tasks
+- start Pomodoro sessions
+- keep a small journal
+- track habits and streaks
+- remember project updates
+- send notes through Telegram
+- check the weather
+- control Spotify
+- open websites and applications on the computer
+- search the web
+- play simple voice games
+- use MCP tools running on the computer
+
+For example:
+
+```text
+"Jarvis"
+
+"Not al: proje teslimi cumaya çekildi."
+
+"25 dakika odaklanacağım."
+
+"Spotify'da çalışma listemi aç."
+
+"Bugün iki saat çalıştım, alışkanlığa ekle."
+
+"Google'ı aç."
+```
+
+And yes, it has a face.
+
+Sometimes that's the most important feature.
+
+---
+
+## Why build this?
+
+Most AI assistants still live inside a tab.
+
+You open a browser, find the right service, type something, switch applications and repeat the same process again later.
+
+I wanted to experiment with a different idea:
+
+> What if the AI was simply sitting on your desk?
+
+Something you could talk to without reaching for your phone.
+
+Eventually I want İva to be able to connect the different parts of my digital and physical environment.
+
+For example:
+
+- control Home Assistant devices
+- change the lights when I start working
+- start a focus playlist
+- start a Pomodoro at the same time
+- tell me when a server or deployment fails
+- notify me about developer tools
+- warn me when an AI service is approaching a usage or quota limit
+
+Most of those integrations are not implemented yet.
+
+That's where I want to take the project.
+
+---
+
+## Architecture
+
+There are currently three main pieces.
+
+### 1. The robot
+
+```text
+firmware/
+```
+
+Runs on the ESP32-S3.
+
+It handles things like:
+
+- microphone and speaker
+- wake word
+- OLED face
+- expressions
+- listening / talking states
+- sleep mode
+- audio playback
+
+---
+
+### 2. The AI server
+
+```text
+server/
+```
+
+Handles the voice pipeline.
+
+```text
+speech
+  ↓
+ASR
+  ↓
+LLM
+  ↓
+TTS
+  ↓
+İva
+```
+
+There is also a self-hosted setup using Docker.
+
+I'm currently experimenting with Groq Whisper and Turkish Edge TTS, but the idea is to keep this layer replaceable.
+
+---
+
+### 3. The bridge
+
+```text
+bridge/
+```
+
+This is probably my favorite part of the project.
+
+The bridge exposes tools to the AI using MCP.
+
+Instead of teaching the ESP32 how to do everything, the robot can ask the computer to perform an action.
+
+Right now the bridge contains 27+ tools around things like:
+
+- notes
+- tasks
+- reminders
+- Pomodoro
+- journal
+- habits
+- project memory
+- Telegram
+- weather
+- Spotify
+- browser / PC interaction
+- small utilities and games
+
+Adding a new ability usually means adding another tool here rather than rebuilding the entire device.
+
+---
+
+## Hardware
+
+My current prototype uses:
+
+| Part | Model |
 |---|---|
-| Uyanma, temel yüz animasyonu | Sadece cihaz (elektrik) — internetsiz çalışır |
-| Sohbet (konuşma/dinleme) | Cihaz + WiFi + sunucu (resmî ya da kendi) |
-| Türkçe cevap sesi | Sunucudaki TTS ayarı (resmî: konsol, kendi: Edge TTS) |
-| Not / Telegram / hatırlatıcı araçları | **Köprü açık olmalı** (`start_iva_bridge.bat`) + `.env` dolu |
-| Telegram'a mesaj | Köprü + geçerli `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` |
-| Kendi sunucu (Türkçe Whisper, müzik) | Docker Desktop açık + `iva-server` konteyneri + Groq anahtarı |
-| Otomatik günlük özet (21:00) | Köprü o saatte açık olmalı |
+| Board | ESP32-S3 Zero |
+| Microphone | INMP441 |
+| Amplifier | MAX98357A |
+| Screen | SSD1306 OLED 128×64 |
 
-**Bağımlılık zinciri kısaca:**
+Current pin mapping:
 
-```
-Cihaz ──WiFi──► Sunucu ──MCP──► Köprü ──► Telegram / dosyalar
-  │               │                │
-elektrik      internet+        PC açık +
-              (Docker)         .env dolu
-```
+| Part | GPIO |
+|---|---|
+| INMP441 SD | 6 |
+| INMP441 WS | 7 |
+| INMP441 SCK | 8 |
+| MAX98357 DIN | 12 |
+| MAX98357 BCLK | 11 |
+| MAX98357 LRC | 10 |
+| OLED SDA | 4 |
+| OLED SCL | 3 |
+| RGB LED | 21 |
 
-<!-- ============================================================= -->
-<!--  GORSEL: İstersen buraya kendi çizdiğin/çektiğin bağlantı şemasının     -->
-<!--  fotoğrafını koyabilirsin: docs/media/baglanti-semasi.jpg              -->
-<!-- ============================================================= -->
+I'm using a 4 MB ESP32-S3 Zero at the moment.
+
+It works, but I'm planning to move to a board with more flash as the firmware grows.
 
 ---
 
-## 🚀 Kurulum
+## Running it
 
-Yeni bir bilgisayarda **tek komutla** kurulur:
+Clone the repository:
 
-```powershell
+```bash
 git clone https://github.com/Talha-Dogan/iva_desk_pet.git
 cd iva_desk_pet
+```
+
+On Windows:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-Bu betik: sanal ortamı kurar, bağımlılıkları yükler, `.env` şablonunu hazırlar ve
-Windows açılışına otomatik başlatma ekler. Ardından `bridge\.env` dosyasına anahtarlarını
-yazman yeterli.
+The setup script installs the Python dependencies, prepares the environment file and sets up the bridge.
 
-Adım adım anlatım ve sorun giderme: **[docs/kurulum.md](docs/kurulum.md)**
+Then configure:
 
-Diğer belgeler:
-- 🔌 [docs/donanim.md](docs/donanim.md) — kablolama şeması
-- 💾 [firmware/README.md](firmware/README.md) — firmware derleme ve yükleme
-- 🛠️ [bridge/README.md](bridge/README.md) — araçlar (not/Telegram/mod)
-- 🖥️ [server/README.md](server/README.md) — kendi sunucun
-- 🧠 [docs/mimari.md](docs/mimari.md) — tasarım kararları ("neden böyle yapıldı")
+```text
+bridge/.env
+```
 
----
+There are more detailed notes in:
 
-## 🔌 Donanım
-
-| Parça | Model | Not |
-|---|---|---|
-| Kart | ESP32-S3 Zero | 4MB flash, 2MB PSRAM (quad) |
-| Mikrofon | INMP441 | I2S dijital |
-| Amfi | MAX98357A | I2S dijital |
-| Ekran | SSD1306 OLED | 128x64, I2C |
-
-<!-- ============================================================= -->
-<!--  GORSEL: Breadboard'un fotoğrafı buraya çok yakışır                    -->
-<!--  docs/media/donanim.jpg                                                -->
-<!-- ============================================================= -->
-
-**Pin bağlantıları:**
-
-| Parça | Bacak → GPIO |
-|---|---|
-| Mikrofon (INMP441) | SD→6, WS→7, SCK→8 |
-| Amfi (MAX98357A) | DIN→12, BCLK→11, LRC→10, GAIN→GND |
-| OLED (SSD1306) | SDA→4, SCL→3 |
-| Dahili RGB LED | 21 |
-
-> **Not:** 4MB flash bazı özellikleri kısıtlar (kablosuz güncelleme ve özel "iva" uyandırma
-> kelimesi yok). 16MB'lık bir S3 kartı bu kısıtları kaldırır.
+```text
+docs/kurulum.md
+docs/donanim.md
+docs/mimari.md
+firmware/README.md
+bridge/README.md
+server/README.md
+```
 
 ---
 
-## 😊 Yüz motoru
+## Repository structure
 
-Sıfırdan yazılmış animasyonlu yüz; [Anki Cozmo/Vector](https://www.fastcompany.com/3061276/meet-cozmo-the-pixar-inspired-ai-powered-robot-that-feels)
-prensiplerinden ilham alır.
+```text
+iva_desk_pet/
+├── firmware/   ESP32 changes, face and hardware code
+├── bridge/     MCP tools and desktop integrations
+├── server/     self-hosted voice / AI server
+├── scripts/    setup and helper scripts
+└── docs/       hardware and architecture notes
+```
 
-- **Durumlar:** Bekleme (gezinen bakış, göz kırpma) → Dinleme (gözler büyür) →
-  Konuşma (sese göre ağız) → Uyku (kapalı gözler, nefes alma)
-- **Duygular:** Sunucudan gelen duygu etiketi 10 yüz ifadesine eşlenir; 12 saniye sonra
-  doğal ifadeye döner
-- **Enerji dostu:** Ekranda yalnızca göz/ağız yanar (arka plan sönük)
+I don't keep the entire upstream firmware tree in this repository.
 
-<!-- ============================================================= -->
-<!--  GORSEL: Duygu ifadelerinin yakın çekim gif'i çok etkileyici olur      -->
-<!--  Öneri: her duygu için kısa gif, tablo halinde:                        -->
-<!--  | Mutlu | Üzgün | Kızgın | Şaşkın |                                    -->
-<!--  |-------|-------|--------|--------|                                    -->
-<!--  docs/media/emotion-*.gif                                              -->
-<!-- ============================================================= -->
-
-Nasıl çalıştığının detayı: [firmware/README.md](firmware/README.md#yüz-motoru-nasıl-çalışır)
+The goal is to keep the parts I've written or changed readable instead of committing roughly a gigabyte of unrelated firmware source.
 
 ---
 
-## 🛠️ İva'nın araçları
+## What's next?
 
-Köprü (`bridge/`) üzerinden yapay zekâya açılan **27 araç**. Tam liste ve örnek komutlar:
-[bridge/README.md](bridge/README.md)
+Things I'd like to work on next:
 
-Kategoriler: **notlar**, **görevler & odak (Pomodoro)**, **kalıcı hatırlatıcılar**,
-**kişisel takip** (mod/günlük/alışkanlık/proje), **hava durumu**, ve **temel araçlar**
-(hesap makinesi, saat, zar).
+- [ ] Home Assistant support
+- [ ] AI/API quota notifications
+- [ ] server and deployment notifications
+- [ ] better music workflows
+- [ ] meeting and lecture summaries
+- [ ] more MCP tools
+- [ ] custom "İva" wake word
+- [ ] 16 MB ESP32-S3 version
+- [ ] 3D printable enclosure
+- [ ] easier Linux/macOS setup
+- [ ] more AI provider options
 
----
+One thing I specifically want to explore is letting İva react to events instead of only waiting for commands.
 
-## 🎮 Oyunlar
+For example, I want it to eventually be able to say:
 
-İva'yla sesle oynanabilecek oyunlar — hepsi Türkçe, ekranda metin yok (sadece ses + yüz).
+> "Claude kullanım limitin azalıyor."
 
-**Sözel oyunlar** (İva'nın kendi zekâsıyla — ekstra kurulum gerekmez, prompt'la gelir):
+or:
 
-| Oyun | Nasıl |
-|---|---|
-| Bilmece | "bana bilmece sor" — İva sorar, sen bulursun |
-| 20 Soru | "20 soru oynayalım" — sen bir şey tut, İva evet-hayır sorularıyla bulur |
-| Taboo | "taboo oynayalım" — İva kelimeyi yasaklı kelimeler kullanmadan anlatır |
-| Kelime çağrışımı | Sırayla ilişkili kelimeler söylersiniz |
-| Şehir-İsim-Hayvan | Harf verilir, kategorilere göre bulma |
-| Ya o ya bu | İva ikilemler sorar ("uçmak mı görünmezlik mi?") |
-| Doğru mu Yanlış mı | İva iddialar söyler, sen tahmin edersin |
-| Hikâye tamamlama | Sırayla cümle ekleyerek birlikte hikâye kurarsınız |
+> "Deployment başarısız oldu."
 
-**Araçlı oyunlar** (sisteme özgü):
-
-| Oyun | Nasıl | Araç |
-|---|---|---|
-| 🎡 Trivia Crack | "Trivia oynayalım" — OLED'de çark döner (Bilim/Sanat/Spor/Tarih/Coğrafya/Eğlence), çıkan kategoriden 4 şıklı soru | `self.trivia_wheel`, `quiz_puan` |
-| 🃏 3 Bilgi (Doğru mu Yanlış mı) | Çark döner, çıkan kategoriden İva 3 bilgi verir (biri uydurma), sen yanlışı bulursun | `self.trivia_wheel`, `quiz_puan` |
-| 🎵 Şarkı tahmin | "şarkı tahmin oyunu" — Spotify'dan bir şarkının ortasından 12 sn çalar, sen tahmin edersin, İva cevabı gizli tutar | `song_quiz` |
-| Skorlu quiz | "bana quiz yap" — İva soru sorar, doğru/yanlış sayını tutar, "5'te 4 yaptın!" der | `quiz_baslat`, `quiz_puan` |
-
-> Trivia Crack ve 3 Bilgi oyunlarında OLED'de fiziksel **çark animasyonu** döner
-> (slot makinesi gibi kategoriler kayıp bir kategoride durur), sonra normal yüze döner.
-> Çark firmware'dedir (`self.trivia_wheel`); soru/bilgi üretimi İva'nın kendi zekâsıdır.
-> Şarkı tahmin oyunu Spotify kurulumu gerektirir (bkz. [bridge/README](bridge/README.md)).
-> Sözel oyunlar için sadece rol tanımına (prompt) oyun bölümünü eklemek yeterli.
+without me checking another dashboard first.
 
 ---
 
-## 🗣️ Sesli komut sözlüğü
+## Build your own
 
-Sık kullanılan komutların örnekleri (İva resmî ya da kendi sunucunda, köprü açıkken):
+İva is not meant to be a closed product.
 
-| Söyle | İva ne yapar |
-|---|---|
-| "Jarvis" / "Computer" | Uyanır ve dinler |
-| *(konuşurken)* "Jarvis" | Durur, seni dinler |
-| "uyu" / "uyan" | Uyur / uyanır |
-| "not al: ..." | Not kaydeder |
-| "bugün ne not aldım?" | Notları okur |
-| "notları Telegram'a gönder" | Gruba gönderir |
-| "listeye ekle: ..." | Görev ekler |
-| "25 dakika odaklanacağım" | Pomodoro başlatır |
-| "her gün 9'da ilaç hatırlat" | Kalıcı hatırlatıcı kurar |
-| "bugün yorgunum" | Modunu kaydeder |
-| "İstanbul'da hava nasıl?" | Hava durumu |
-| "durum ekranını göster" | Bilgi ekranına geçer |
-| "Sezen Aksu çal" | Spotify'da direkt çalar |
-| "durdur" / "sonraki şarkı" / "sesi kıs" | Müzik kontrolü |
-| "Google aç" / "hesap makinesi aç" | Site / uygulama açar |
-| "internette ... ara" | Google araması açar |
-| "bana bilmece sor" / "şarkı tahmin oyunu" | Oyun başlatır |
+If you want to build one, modify it, give it a different face, connect another model or write your own MCP tools, that's exactly the kind of thing I'd like to see people do with the project.
+
+Issues and pull requests are welcome.
+
+If you build your own version, please show me. :)
 
 ---
 
-## 💻 PC kontrolü
+## Demo
 
-İva, senin bilgisayarınla etkileşime girebilir — tarayıcı açar, YouTube'da şarkı bulup çalar,
-web araması yapar. Bunun için ekstra bir kurulum gerekmez; araçlar zaten köprüde (`bridge/`) çalışır.
+There is an interactive web version of the current concept here:
 
-| Söyle | Ne olur |
-|---|---|
-| "Google aç", "YouTube aç", "Spotify aç", "Gmail aç" | Site PC'de açılır (bilinen ~15 site hazır) |
-| "... şarkısını aç", "YouTube'da ... aç" | yt-dlp ile ilk video bulunur, açılır ve **çalmaya başlar** |
-| "internette ... ara", "Google'da ... ara" | Google araması açılır |
+### https://iva-web-concept.vercel.app/
 
-**Nasıl çalışır?** Cihaz komutu anlamaz — "YouTube aç" isteği sunucudan senin PC'ndeki köprüye
-gider, köprü tarayıcıyı açar. Yani ESP32'ye kod yüklemeye gerek yok; yeni PC yeteneği eklemek
-sadece köprüdeki `tools.py`'yi değiştirmektir.
+You can rotate the model, look at the current product concept and try the browser simulation of İva's screen.
 
-> **Güvenlik:** Bu araçlar yalnızca web sayfası açar — komut çalıştırmaz, dosya silmez.
-> İva'nın PC erişimi sınırlı ve güvenli bir çerçevededir.
-
-**Not:** Yeni araç eklendiğinde cihaz bir kez yeniden başlatılmalı (güncel araç listesini
-oturum başında alır). Konsolda MCP Endpoint durumu "Connected" olmalı; "Not Connected" ise
-`.env`'deki endpoint token'ı eskimiş olabilir (xiaozhi bunları yeniler) — konsoldaki güncel
-adresi `.env`'e yapıştırıp köprüyü yeniden başlat.
+The physical project is still under development, so the site changes along with the prototype.
 
 ---
 
-## 📁 Klasör yapısı
+## Open-source projects behind İva
 
-| Klasör | İçerik |
-|---|---|
-| [`firmware/`](firmware/) | ESP32 tarafı: yüz motoru, pin haritası, değiştirilmiş kaynaklar |
-| [`bridge/`](bridge/) | İva'nın araçları (MCP sunucusu) |
-| [`server/`](server/) | Kendi sunucun: Docker + Türkçe ASR/LLM/TTS + testler |
-| [`scripts/`](scripts/) | Kurulum, otomatik başlatma, repo senkron betikleri |
-| [`docs/`](docs/) | Donanım, mimari, kurulum belgeleri |
+İva wouldn't exist without a few other open-source projects.
 
-> Bu repo çalışma klasörünün **düzenlenmiş kopyasıdır** — 1 GB'lık firmware ağacını değil,
-> yalnızca yazdığımız/değiştirdiğimiz dosyaları içerir. Gizli anahtarlar `.gitignore` ile dışarıda.
+It currently builds on or takes inspiration from:
 
----
+- [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) — base ESP32 firmware
+- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) — self-hosted server foundation
+- [TechTalkies/Face-for-Xiaozhi](https://github.com/TechTalkies/Face-for-Xiaozhi) — early inspiration for the face system
 
-## 🗺️ Yol haritası
+The face also takes some design inspiration from robots such as Anki Cozmo and Vector.
 
-- [x] Türkçe firmware + iki uyandırma kelimesi
-- [x] Duygulara tepki veren animasyonlu yüz
-- [x] Gerçek dudak senkronu, düşük güç ekran çizimi
-- [x] Sözünü kesme (barge-in)
-- [x] 30 araç: not / Telegram / mod / hatırlatıcı / Pomodoro / hava
-- [x] PC kontrolü: tarayıcı, uygulama açma, web arama
-- [x] Müzik: Spotify çal/durdur/ses kontrolü (Premium), YouTube
-- [x] Oyunlar: Trivia Crack (OLED çark animasyonu), 3 Bilgi, bilmece, 20 soru, taboo, şarkı tahmin, skorlu quiz
-- [x] Kalıcı hatırlatıcılar + otomatik yedekleme
-- [x] Kendi sunucu (Türkçe ASR + TTS, test edildi)
-- [x] Windows açılışında otomatik başlatma + tek komutluk kurulum
-- [ ] Ders/toplantı kayıt ve özet modu
-- [ ] Çalma listesi ("favorilerimi çal")
-- [ ] Home Assistant ile akıllı ev kontrolü
-- [ ] Kendi müzik arşivi (kendi sunucuda)
-- [ ] 3D baskı kasa + 16MB karta geçiş
+İva is released under the MIT License.
 
 ---
 
-## 📜 Lisans ve teşekkür
+İva currently lives on my desk.
 
-MIT. Bu proje şunların üzerine kuruludur:
-
-- [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) (MIT) — ana firmware
-- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) — kendi sunucu
-- [TechTalkies/Face-for-Xiaozhi](https://github.com/TechTalkies/Face-for-Xiaozhi) (MIT) — yüz motorunun ilk fikri
-- Göz animasyonunda Anki Cozmo/Vector tasarım prensiplerinden ilham alınmıştır
-
----
-
-<p align="center"><i>Talha'nın masasında yaşıyor 🤖</i></p>
+Hopefully someone builds one for theirs too. 🤖
