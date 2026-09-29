@@ -1,16 +1,17 @@
-İva 
+# İva 🤖
 
-İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.
+**İva is an open-source desk robot that takes AI out of the browser and puts it on your desk.**
 
-I started building İva because I wanted an AI assistant that felt less like another app and more like something that actually lived in the room with me.
+I started working on İva because I was getting tired of AI assistants always being stuck inside a browser window. I wanted something I could actually keep on my desk and talk to without opening another app first.
 
 You talk to it. It listens, answers, changes its expression, takes notes, starts timers, controls music and can use tools running on your computer.
 
-İva is being developed with the help of AI tools as well. Claude has been part of the development process, especially while working through architecture decisions, firmware and backend problems, debugging, documentation, and new feature ideas. I still design, test and maintain the project myself, but Claude has become one of the tools I use while building it.
+Claude has also been part of the way I build İva. I use it while thinking through architecture, debugging firmware and backend problems, improving documentation and trying out new ideas. I still design, test and maintain the project myself, but Claude has become one of the tools I regularly work with.
 
-It is still a prototype, and there is a lot I want to add.
+İva is still a prototype, and there is a lot I want to add.
 
-→ See İva in action: https://iva-web-concept.vercel.app/
+**→ See İva in action:** https://iva-web-concept.vercel.app/
+
 ---
 
 ## What is İva?
@@ -33,11 +34,11 @@ MCP tools
 Your computer / services / devices
 ```
 
-That separation is intentional.
+I designed it this way on purpose.
 
-I don't want İva to be tied to one AI company or one model.
+I don't want İva to depend on one AI company or one model.
 
-The robot should be the interface.  
+The robot should stay the interface.  
 The brain behind it should be replaceable.
 
 ---
@@ -71,20 +72,20 @@ For example:
 ```text
 "Jarvis"
 
-"Not al: proje teslimi cumaya çekildi."
+"Take a note: the project deadline has been moved to Friday."
 
-"25 dakika odaklanacağım."
+"I'm going to focus for 25 minutes."
 
-"Spotify'da çalışma listemi aç."
+"Open my focus playlist on Spotify."
 
-"Bugün iki saat çalıştım, alışkanlığa ekle."
+"I worked for two hours today, add it to my habit tracker."
 
-"Google'ı aç."
+"Open Google."
 ```
 
 And yes, it has a face.
 
-Sometimes that's the most important feature.
+Sometimes that's the most important part.
 
 ---
 
@@ -94,13 +95,13 @@ Most AI assistants still live inside a tab.
 
 You open a browser, find the right service, type something, switch applications and repeat the same process again later.
 
-I wanted to experiment with a different idea:
+I wanted to try something different:
 
 > What if the AI was simply sitting on your desk?
 
-Something you could talk to without reaching for your phone.
+Something you could talk to without reaching for your phone or opening another window.
 
-Eventually I want İva to be able to connect the different parts of my digital and physical environment.
+Long term, I want İva to connect more of the digital and physical things around me.
 
 For example:
 
@@ -110,45 +111,45 @@ For example:
 - start a Pomodoro at the same time
 - tell me when a server or deployment fails
 - notify me about developer tools
-- warn me when an AI service is approaching a usage or quota limit
+- warn me when an AI service is getting close to a usage or quota limit
 
 Most of those integrations are not implemented yet.
 
-That's where I want to take the project.
+That's the direction I want to take the project.
 
 ---
 
 ## Architecture
 
-There are currently three main pieces.
+There are currently three main parts.
 
-### 1. The robot
+- 1. The robot
 
 ```text
 firmware/
 ```
 
-Runs on the ESP32-S3.
+This is the ESP32-S3 side.
 
 It handles things like:
 
 - microphone and speaker
-- wake word
+- wake word detection
 - OLED face
 - expressions
-- listening / talking states
+- listening and talking states
 - sleep mode
 - audio playback
 
 ---
 
-### 2. The AI server
+- 2. The AI server
 
 ```text
 server/
 ```
 
-Handles the voice pipeline.
+This handles the voice pipeline.
 
 ```text
 speech
@@ -164,21 +165,21 @@ TTS
 
 There is also a self-hosted setup using Docker.
 
-I'm currently experimenting with Groq Whisper and Turkish Edge TTS, but the idea is to keep this layer replaceable.
+Right now I'm experimenting with Groq Whisper and Turkish Edge TTS, but I want this layer to stay replaceable.
+
+The idea is simple: if I want to change the model, speech service or TTS provider later, I shouldn't have to redesign the robot.
 
 ---
 
-### 3. The bridge
+- 3. The bridge
 
 ```text
 bridge/
 ```
 
-This is probably my favorite part of the project.
+The bridge is what connects the AI to tools running on the computer.
 
-The bridge exposes tools to the AI using MCP.
-
-Instead of teaching the ESP32 how to do everything, the robot can ask the computer to perform an action.
+Instead of teaching the ESP32 how to do everything directly, İva can ask the computer to perform an action through MCP.
 
 Right now the bridge contains 27+ tools around things like:
 
@@ -192,10 +193,12 @@ Right now the bridge contains 27+ tools around things like:
 - Telegram
 - weather
 - Spotify
-- browser / PC interaction
+- browser and PC interaction
 - small utilities and games
 
-Adding a new ability usually means adding another tool here rather than rebuilding the entire device.
+This has turned out to be one of the parts I like most about the project.
+
+If I want to give İva a new ability, I usually don't need to rebuild the firmware. I can add another tool to the bridge and let the AI use it.
 
 ---
 
@@ -224,9 +227,9 @@ Current pin mapping:
 | OLED SCL | 3 |
 | RGB LED | 21 |
 
-I'm using a 4 MB ESP32-S3 Zero at the moment.
+The board I'm using right now is a 4 MB ESP32-S3 Zero.
 
-It works, but I'm planning to move to a board with more flash as the firmware grows.
+It's been enough for the prototype so far, but I'm already starting to run into its limits. I'll probably move to a board with more flash once I start adding more to the firmware.
 
 ---
 
@@ -245,7 +248,9 @@ On Windows:
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-The setup script installs the Python dependencies, prepares the environment file and sets up the bridge.
+I made a small setup script so I wouldn't have to repeat the same installation steps every time I set İva up on a new machine.
+
+It creates the Python environment, installs the dependencies, prepares the `.env` file and gets the bridge ready to run.
 
 Then configure:
 
@@ -279,7 +284,9 @@ iva_desk_pet/
 
 I don't keep the entire upstream firmware tree in this repository.
 
-The goal is to keep the parts I've written or changed readable instead of committing roughly a gigabyte of unrelated firmware source.
+The original firmware tree is large, and most of it isn't something I changed. I prefer keeping this repository focused on the parts I've actually written, modified or documented for İva.
+
+That makes it much easier for me to understand what belongs to this project and what comes from upstream.
 
 ---
 
@@ -299,17 +306,19 @@ Things I'd like to work on next:
 - [ ] easier Linux/macOS setup
 - [ ] more AI provider options
 
-One thing I specifically want to explore is letting İva react to events instead of only waiting for commands.
+One thing I specifically want to experiment with is making İva react to events instead of only waiting for me to speak first.
 
 For example, I want it to eventually be able to say:
 
-> "Claude kullanım limitin azalıyor."
+> "You're getting close to your Claude usage limit."
 
 or:
 
-> "Deployment başarısız oldu."
+> "The deployment failed."
 
-without me checking another dashboard first.
+without me opening another dashboard first.
+
+I think that's where a physical assistant starts becoming more interesting than a normal chatbot.
 
 ---
 
@@ -317,11 +326,13 @@ without me checking another dashboard first.
 
 İva is not meant to be a closed product.
 
-If you want to build one, modify it, give it a different face, connect another model or write your own MCP tools, that's exactly the kind of thing I'd like to see people do with the project.
+If you want to build one, modify it, give it a different face, connect another model or write your own MCP tools, that's exactly the kind of thing I'd like people to do with the project.
+
+You should be able to change the parts you don't like and replace the parts that don't make sense for your setup.
 
 Issues and pull requests are welcome.
 
-If you build your own version, please show me. :)
+If you build your own version, I'd genuinely like to see it. :)
 
 ---
 
@@ -333,21 +344,21 @@ There is an interactive web version of the current concept here:
 
 You can rotate the model, look at the current product concept and try the browser simulation of İva's screen.
 
-The physical project is still under development, so the site changes along with the prototype.
+The physical project is still under development, so the site changes as the prototype changes.
 
 ---
 
 ## Open-source projects behind İva
 
-İva wouldn't exist without a few other open-source projects.
+İva also depends on a few open-source projects that saved me from having to build everything from scratch.
 
-It currently builds on or takes inspiration from:
+- [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) — this is where the base ESP32 firmware comes from. I built İva's hardware behavior and changes on top of it.
+- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) — I used this as the starting point for the self-hosted server side.
+- [TechTalkies/Face-for-Xiaozhi](https://github.com/TechTalkies/Face-for-Xiaozhi) — this helped inspire some of the early ideas around the face system.
 
-- [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32) — base ESP32 firmware
-- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) — self-hosted server foundation
-- [TechTalkies/Face-for-Xiaozhi](https://github.com/TechTalkies/Face-for-Xiaozhi) — early inspiration for the face system
+The face also takes some design inspiration from expressive robots like Anki Cozmo and Vector.
 
-The face also takes some design inspiration from robots such as Anki Cozmo and Vector.
+I've changed and added quite a bit around these projects, but they're an important part of what İva is built on.
 
 İva is released under the MIT License.
 
