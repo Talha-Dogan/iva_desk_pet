@@ -6,8 +6,6 @@ I started working on İva because I was getting tired of AI assistants always be
 
 You talk to it. It listens, answers, changes its expression, takes notes, starts timers, controls music and can use tools running on your computer.
 
-Claude has also been part of the way I build İva. I use it while thinking through architecture, debugging firmware and backend problems, improving documentation and trying out new ideas. I still design, test and maintain the project myself, but Claude has become one of the tools I regularly work with.
-
 İva is still a prototype, and there is a lot I want to add.
 
 **→ See İva in action:** https://iva-web-concept.vercel.app/
